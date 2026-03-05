@@ -9,7 +9,7 @@ const generateSwaggerYaml = async () => {
     const server = await initServerInPurgatory();
     await generateSwagger(server);
   } catch (err) {
-    logger.error('Error running Swagger generation script:', err);
+    logger.debug('Error running Swagger generation script:', err);
     process.exit(1);
   }
 };

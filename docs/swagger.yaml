@@ -1,8 +1,8 @@
 basePath: /
 info:
-  title: Mock API Documentation
+  title: Payment Management API Documentation
   version: 1.0.0
-  description: Detailed API documentation for Mock endpoints
+  description: Detailed API documentation for Payment Management endpoints
 schemes:
   - https
   - http
@@ -17,277 +17,437 @@ securityDefinitions:
 security:
   - jwt: []
 swagger: '2.0'
-host: 0.0.0.0:80
+host: 0.0.0.0:8080
 tags: []
 paths:
-  /mocks:
+  /v1/paymentManagement/payments:
     get:
-      summary: Get all mocks
-      operationId: getMocks
-      description: Fetch a list of all mocks.
-      tags:
-        - v1
-      responses:
-        '200':
-          schema:
-            $ref: '#/definitions/GetAllMocksResponse'
-          description: Successful
-    post:
-      summary: Create a new mock
-      operationId: postMocks
-      description: >-
-        Registers a new mock with simplified keys (mockStringKey, mockIntKey,
-        etc.).
+      summary: >-
+        To retrieve account payment history using GetAccountPaymentHistory API
+        of EOR via CXS
+      operationId: getV1PaymentmanagementPayments
       parameters:
         - type: string
           name: authorization
           in: header
           required: true
-        - in: body
-          name: body
+        - type: string
+          name: user-token
+          in: header
+          required: false
+        - type: string
+          name: deviceid
+          in: header
+          required: false
+        - type: string
+          name: otpreferenceid
+          in: header
+          required: false
+        - type: string
+          description: |2-
+             HIP Parameter : MSISDN
+             Rudy Parameter : msisdn
+          pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
+          name: mobileNumber
+          in: query
+          required: false
+        - type: string
+          description: ' Rudy Parameter : accountId'
+          pattern: ^[0-9]+$
+          x-convert:
+            trim: true
+          name: accountNumber
+          in: query
+          required: false
+        - type: string
+          format: date-time
+          name: startDate
+          in: query
+        - type: string
+          format: date-time
+          name: endDate
+          in: query
+      tags:
+        - v1
+      responses:
+        '200':
           schema:
-            $ref: '#/definitions/CreateMockRequestPayloadModel'
+            $ref: '#/definitions/GetPaymentsResponse'
+          description: Successful
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/receipts/{receiptId}:
+    get:
+      summary: Retrieves receipt for a given payment transaction
+      operationId: getV1PaymentmanagementReceiptsReceiptid
+      description: Retrieves the HTML receipt for a given payment transaction
+      parameters:
+        - type: string
+          x-convert:
+            trim: true
+          name: receiptId
+          in: path
+          required: true
+        - type: string
+          x-convert:
+            trim: true
+          name: storeId
+          in: query
+          required: true
+        - type: string
+          x-convert:
+            trim: true
+          name: appCode
+          in: query
+          required: false
       tags:
         - v1
       responses:
         '201':
           schema:
-            $ref: '#/definitions/CreateMockResponse'
+            $ref: '#/definitions/GetPaymentReceiptResponse'
           description: Created
         '400':
           schema:
             $ref: '#/definitions/BadRequestError'
           description: Bad Request
-  /mocks/test:
-    get:
-      summary: Standalone test route
-      operationId: getMocksTest
-      description: >-
-        A simple test endpoint to validate service functionality without
-        external dependencies.
-      tags:
-        - v1
-      responses:
-        default:
+        '401':
           schema:
-            type: string
-          description: Successful
-  /mocks/{id}:
-    get:
-      summary: Get mock by ID
-      operationId: getMocksId
-      description: Fetch a mock's details by providing the mock ID.
-      parameters:
-        - type: string
-          name: authorization
-          in: header
-          required: true
-        - type: string
-          description: The mock ID
-          name: id
-          in: path
-          required: true
-      tags:
-        - v1
-      responses:
-        '200':
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
           schema:
-            $ref: '#/definitions/GetMockByIdResponse'
-          description: Successful
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
         '404':
           schema:
             $ref: '#/definitions/NotFoundError'
           description: Not Found
-    put:
-      summary: Update mock details
-      operationId: putMocksId
-      description: Update the details of an existing mock by ID.
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/payments/{tokenPaymentId}/sessions:
+    get:
+      summary: API for receiving payment session data from Payment Service.
+      operationId: getV1PaymentmanagementPaymentsTokenpaymentidSessions
       parameters:
         - type: string
+          x-convert:
+            trim: true
           name: authorization
           in: header
           required: true
         - type: string
-          description: The mock ID
-          name: id
+          x-convert:
+            trim: true
+          name: deviceid
+          in: header
+          required: false
+        - type: string
+          x-convert:
+            trim: true
+          name: user-token
+          in: header
+          required: false
+        - type: string
+          x-convert:
+            trim: true
+          name: tokenPaymentId
           in: path
           required: true
+      tags:
+        - v1
+      responses:
+        '201':
+          schema:
+            $ref: '#/definitions/GetPaymentSessionByTokenPaymentIdResponse'
+          description: Created
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/internal/csPayments:
+    post:
+      summary: To update the payment status of a change sim transaction
+      operationId: postV1PaymentmanagementInternalCspayments
+      parameters:
+        - type: string
+          name: cxscachecontrol
+          in: header
+          required: false
         - in: body
           name: body
           schema:
-            $ref: '#/definitions/UpdateMockByIdModel'
-      tags:
-        - v1
-      responses:
-        '200':
-          schema:
-            $ref: '#/definitions/UpdateMockByIdResponse'
-          description: Successful
-        '404':
-          schema:
-            $ref: '#/definitions/NotFoundError'
-          description: Not Found
-    delete:
-      summary: Delete mock by ID
-      operationId: deleteMocksId
-      description: Delete an existing mock by ID.
-      parameters:
-        - type: string
-          name: authorization
-          in: header
-          required: true
-        - type: string
-          description: The mock ID
-          name: id
-          in: path
-          required: true
+            $ref: '#/definitions/ProcessCSPaymentsRequestPayloadModel'
       tags:
         - v1
       responses:
         '204':
-          description: Mock deleted successfully
           schema:
-            type: string
-            description: Mock deleted successfully
+            $ref: '#/definitions/ProcessCSPaymentsResponse'
+          description: No Content
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
         '404':
           schema:
             $ref: '#/definitions/NotFoundError'
           description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/payments/sessions:
+    post:
+      summary: >-
+        An API that requests payment session token from Payment Service and
+        sends the session token as response.
+      operationId: postV1PaymentmanagementPaymentsSessions
+      description: >-
+        An API that requests payment session token from Payment Service and
+        sends the session token as response.
+      parameters:
+        - type: string
+          pattern: ^Bearer\s+\S+$
+          name: authorization
+          in: header
+          required: true
+        - type: string
+          pattern: ^Bearer\s+\S+$
+          name: user-token
+          in: header
+          required: false
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/Model2'
+      tags:
+        - v1
+      responses:
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/esim/payments/session:
+    post:
+      summary: >-
+        Requests payment session token  from Payment Service​ and sends the
+        session token as response
+      operationId: postV1PaymentmanagementEsimPaymentsSession
+      description: >-
+        Validates request, processes payment session, and stores transaction
+        details.
+      parameters:
+        - type: string
+          x-convert:
+            trim: true
+          name: authorization
+          in: header
+          required: true
+        - type: string
+          x-convert:
+            trim: true
+          name: deviceid
+          in: header
+          required: true
+        - type: string
+          x-convert:
+            trim: true
+          name: user-token
+          in: header
+          required: false
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/CreateEsimPaymentSessionRequestPayload'
+      tags:
+        - v1
+      responses:
+        '201':
+          schema:
+            $ref: '#/definitions/CreateEsimPaymentSessionResponse'
+          description: Created
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/payments/sessions/callback:
+    post:
+      summary: An API for receiving payment session data from Payment Service
+      operationId: postV1PaymentmanagementPaymentsSessionsCallback
+      description: An API for receiving payment session data from Payment Service
+      parameters:
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/Model5'
+      tags:
+        - v1
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PaymentSessionCallbackResponse'
+          description: Successful
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
 definitions:
-  MockObjectKeyModel:
+  GetPaymentsResultPaymentObject:
     type: object
-  MockArrayKeyModel:
+    properties:
+      amount:
+        type: string
+        description: ' Rudy Parameter : paymentAmount'
+      date:
+        type: string
+        description: ' Rudy Parameter : paymentDate'
+      printable:
+        type: boolean
+      accountNumber:
+        type: string
+        description: |2-
+           Rudy Parameter : accountId
+           HIP Parameter : BillingArrangementHeader.AccountIdInfo.AccountNo
+      email:
+        type: string
+      mobileNumber:
+        type: string
+        description: ' Rudy Parameter : msisdn'
+      arPaymentId:
+        type: string
+      notified:
+        type: boolean
+      receiptId:
+        type: string
+        description: ' Rudy Parameter : orId'
+      sourceId:
+        type: string
+        description: ' Rudy Parameter : paymentSourceId'
+    required:
+      - amount
+      - date
+      - printable
+      - accountNumber
+      - email
+      - mobileNumber
+      - arPaymentId
+      - notified
+      - receiptId
+      - sourceId
+  GetPaymentsResultPaymentModel:
     type: array
     items:
-      type: string
-  GetMocksResponseModel:
+      $ref: '#/definitions/GetPaymentsResultPaymentObject'
+  GetPaymentsResultModel:
     type: object
     properties:
-      id:
+      payments:
+        $ref: '#/definitions/GetPaymentsResultPaymentModel'
+      token:
         type: string
-      mockStringKey:
-        type: string
-      mockIntKey:
-        type: integer
-      mockObjKey:
-        $ref: '#/definitions/MockObjectKeyModel'
-      mockArrayKey:
-        $ref: '#/definitions/MockArrayKeyModel'
-      createdAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
-      updatedAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
     required:
-      - id
-      - mockStringKey
-      - mockIntKey
-      - mockObjKey
-      - mockArrayKey
-  GetAllMocksResponse:
-    type: array
-    items:
-      $ref: '#/definitions/GetMocksResponseModel'
-  GetMockByIdResponse:
+      - payments
+      - token
+  GetPaymentsResponse:
     type: object
     properties:
-      id:
-        type: string
-      mockStringKey:
-        type: string
-      mockIntKey:
-        type: integer
-      mockObjKey:
-        $ref: '#/definitions/MockObjectKeyModel'
-      mockArrayKey:
-        $ref: '#/definitions/MockArrayKeyModel'
-      createdAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
-      updatedAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
+      result:
+        $ref: '#/definitions/GetPaymentsResultModel'
     required:
-      - id
-      - mockStringKey
-      - mockIntKey
-      - mockObjKey
-      - mockArrayKey
-  NotFoundErrorModel:
-    type: object
-    properties:
-      statusCode:
-        type: string
-      code:
-        type: string
-        example: 40403
-      message:
-        type: string
-        example: Resource Not Found
-      details:
-        type: string
-        example: The provided OTP reference ID is not found
-      displayMessage:
-        type: string
-    required:
-      - code
-      - message
-      - details
-  NotFoundError:
-    type: object
-    properties:
-      error:
-        $ref: '#/definitions/NotFoundErrorModel'
-    required:
-      - error
-  CreateMockRequestPayloadModel:
-    type: object
-    properties:
-      mockStringKey:
-        type: string
-      mockIntKey:
-        type: integer
-      mockObjKey:
-        $ref: '#/definitions/MockObjectKeyModel'
-      mockArrayKey:
-        $ref: '#/definitions/MockArrayKeyModel'
-    required:
-      - mockStringKey
-      - mockIntKey
-      - mockObjKey
-      - mockArrayKey
-  CreateMockResponse:
-    type: object
-    properties:
-      id:
-        type: string
-      mockStringKey:
-        type: string
-      mockIntKey:
-        type: integer
-      mockObjKey:
-        $ref: '#/definitions/MockObjectKeyModel'
-      mockArrayKey:
-        $ref: '#/definitions/MockArrayKeyModel'
-      createdAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
-      updatedAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
-    required:
-      - id
-      - mockStringKey
-      - mockIntKey
-      - mockObjKey
-      - mockArrayKey
+      - result
   BadRequestErrorModel:
     type: object
     properties:
@@ -315,46 +475,882 @@ definitions:
         $ref: '#/definitions/BadRequestErrorModel'
     required:
       - error
-  UpdateMockByIdModel:
+  UnauthorizedErrorModel:
     type: object
     properties:
-      mockStringKey:
+      statusCode:
         type: string
-      mockIntKey:
-        type: integer
-      mockObjKey:
-        $ref: '#/definitions/MockObjectKeyModel'
-      mockArrayKey:
-        $ref: '#/definitions/MockArrayKeyModel'
+      code:
+        type: string
+        example: 40102
+      message:
+        type: string
+        example: Invalid Access Token
+      details:
+        type: string
+        example: The authorization header is not valid.
+      displayMessage:
+        type: string
     required:
-      - mockStringKey
-      - mockIntKey
-      - mockObjKey
-      - mockArrayKey
-  UpdateMockByIdResponse:
+      - code
+      - message
+      - details
+  UnauthorizedError:
     type: object
     properties:
-      id:
-        type: string
-      mockStringKey:
-        type: string
-      mockIntKey:
-        type: integer
-      mockObjKey:
-        $ref: '#/definitions/MockObjectKeyModel'
-      mockArrayKey:
-        $ref: '#/definitions/MockArrayKeyModel'
-      createdAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
-      updatedAt:
-        type: string
-        format: date
-        default: '2024-10-23T09:19:11.756Z'
+      error:
+        $ref: '#/definitions/UnauthorizedErrorModel'
     required:
-      - id
-      - mockStringKey
-      - mockIntKey
-      - mockObjKey
-      - mockArrayKey
+      - error
+  ForbiddenErrorModel:
+    type: object
+    properties:
+      statusCode:
+        type: string
+      code:
+        type: string
+        example: 40301
+      message:
+        type: string
+        example: Insufficient Scope
+      details:
+        type: string
+        example: >-
+          The authorization header has insufficient permissions to access the
+          API resource.
+      displayMessage:
+        type: string
+    required:
+      - code
+      - message
+      - details
+  ForbiddenError:
+    type: object
+    properties:
+      error:
+        $ref: '#/definitions/ForbiddenErrorModel'
+    required:
+      - error
+  NotFoundErrorModel:
+    type: object
+    properties:
+      statusCode:
+        type: string
+      code:
+        type: string
+        example: 40403
+      message:
+        type: string
+        example: Resource Not Found
+      details:
+        type: string
+        example: The provided OTP reference ID is not found
+      displayMessage:
+        type: string
+    required:
+      - code
+      - message
+      - details
+  NotFoundError:
+    type: object
+    properties:
+      error:
+        $ref: '#/definitions/NotFoundErrorModel'
+    required:
+      - error
+  InternalServerErrorModel:
+    type: object
+    properties:
+      statusCode:
+        type: string
+      code:
+        type: string
+        example: 50001
+      message:
+        type: string
+        example: Internal Server Error
+      details:
+        type: string
+        example: >-
+          The server encountered an unexpected condition that prevented it from
+          fulfilling the request.
+      displayMessage:
+        type: string
+    required:
+      - code
+      - message
+      - details
+  InternalServerError:
+    type: object
+    properties:
+      error:
+        $ref: '#/definitions/InternalServerErrorModel'
+    required:
+      - error
+  Content-Type:
+    type: string
+    enum:
+      - text/html
+  ReceiptResponseHeaders:
+    type: object
+    properties:
+      Content-Type:
+        $ref: '#/definitions/Content-Type'
+    required:
+      - Content-Type
+  GetPaymentReceiptResponse:
+    type: object
+    properties:
+      result:
+        type: string
+      headers:
+        $ref: '#/definitions/ReceiptResponseHeaders'
+    required:
+      - result
+      - headers
+  PaymentDetailModel:
+    type: object
+    properties:
+      convenienceFeeAmount:
+        type: string
+      postedAmount:
+        type: string
+      paymentAmount:
+        type: string
+      convenienceFeeType:
+        type: string
+    required:
+      - convenienceFeeAmount
+      - postedAmount
+      - paymentAmount
+  PaymentDetailsArray:
+    type: array
+    items:
+      $ref: '#/definitions/PaymentDetailModel'
+  TransactionModel:
+    type: object
+    properties:
+      transactionId:
+        type: string
+      provisionStatus:
+        type: string
+      amount:
+        type: number
+      keyword:
+        type: string
+      questIndicator:
+        type: string
+    required:
+      - transactionId
+  TransactionsArray:
+    type: array
+    items:
+      $ref: '#/definitions/TransactionModel'
+  RefundModel:
+    type: object
+    properties:
+      status:
+        type: string
+      amount:
+        type: string
+    required:
+      - status
+      - amount
+  ReferralCodeModel:
+    type: object
+    properties:
+      msisdn:
+        type: string
+      status:
+        type: string
+    required:
+      - msisdn
+      - status
+  RewardPointsModel:
+    type: object
+    properties:
+      referralCodeOwner:
+        $ref: '#/definitions/ReferralCodeModel'
+      referralCodeUser:
+        $ref: '#/definitions/ReferralCodeModel'
+    required:
+      - referralCodeOwner
+      - referralCodeUser
+  AccountModel:
+    type: object
+    properties:
+      accountNumber:
+        type: string
+      accountName:
+        type: string
+      landlineNumber:
+        type: string
+      mobileNumber:
+        type: string
+      status:
+        type: string
+      statusRemarks:
+        type: string
+      transactions:
+        $ref: '#/definitions/TransactionsArray'
+      refund:
+        $ref: '#/definitions/RefundModel'
+      rewardPoints:
+        $ref: '#/definitions/RewardPointsModel'
+      accountType:
+        type: string
+      amount:
+        type: string
+    required:
+      - status
+  AccountsArray:
+    type: array
+    items:
+      $ref: '#/definitions/AccountModel'
+  ErrorModel:
+    type: object
+    properties:
+      message:
+        type: string
+      error_code:
+        type: string
+    required:
+      - message
+  ErrorsArray:
+    type: array
+    items:
+      $ref: '#/definitions/ErrorModel'
+  OonaModel:
+    type: object
+    properties:
+      oonaSku:
+        type: string
+      oonaStatus:
+        type: string
+      amount:
+        type: string
+    required:
+      - oonaSku
+      - oonaStatus
+      - amount
+  OonaArray:
+    type: array
+    items:
+      $ref: '#/definitions/OonaModel'
+  GetPaymentSessionResultModel:
+    type: object
+    properties:
+      tokenPaymentId:
+        type: string
+      paymentDetails:
+        $ref: '#/definitions/PaymentDetailsArray'
+      paymentSession:
+        type: string
+      checkoutUrl:
+        type: string
+      accounts:
+        $ref: '#/definitions/AccountsArray'
+      merchantAccount:
+        type: string
+      paymentMethods:
+        type: string
+      storedPaymentMethods:
+        type: string
+      paymentResult:
+        type: string
+      errors:
+        $ref: '#/definitions/ErrorsArray'
+      transactionDate:
+        type: string
+      oona:
+        $ref: '#/definitions/OonaArray'
+    required:
+      - tokenPaymentId
+      - paymentSession
+      - checkoutUrl
+      - merchantAccount
+      - paymentMethods
+      - storedPaymentMethods
+      - paymentResult
+      - transactionDate
+  GetPaymentSessionByTokenPaymentIdResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/GetPaymentSessionResultModel'
+    required:
+      - result
+  ProcessCSPaymentsRequestPayloadModel:
+    type: object
+    properties:
+      tokenPaymentId:
+        type: string
+        description: 'GOR Parameter : paymentTokenId'
+        x-convert:
+          trim: true
+      paymentStatus:
+        type: string
+        description: 'GOR Parameter : paymentStatus'
+        x-convert:
+          trim: true
+      transactionId:
+        type: string
+        description: 'GOR Parameter : referenceId'
+        x-convert:
+          trim: true
+      paymentChannel:
+        type: string
+        description: 'GOR Parameter : paymentChannel'
+        x-convert:
+          trim: true
+    required:
+      - tokenPaymentId
+      - paymentStatus
+      - transactionId
+      - paymentChannel
+  ProcessCSPaymentsResponse:
+    type: object
+  paymentType:
+    type: string
+    enum:
+      - ADYEN
+      - GCASH
+      - DROPIN
+      - XENDIT
+  paymentInformation:
+    type: object
+  voucher:
+    type: object
+    properties:
+      category:
+        type: string
+      code:
+        type: string
+    required:
+      - category
+      - code
+  transactionType:
+    type: string
+    enum:
+      - G
+      - I
+      - 'N'
+      - B
+  transactions:
+    type: array
+    items:
+      type: string
+  createOrderExternal:
+    type: array
+    items:
+      type: string
+  notification:
+    type: object
+  flights:
+    type: array
+    items:
+      type: string
+      pattern: \S
+  Model1:
+    type: object
+    properties:
+      firstName:
+        type: string
+        pattern: \S
+      lastname:
+        type: string
+        pattern: \S
+    required:
+      - firstName
+      - lastname
+  members:
+    type: array
+    items:
+      $ref: '#/definitions/Model1'
+  metadata:
+    type: object
+    properties:
+      firstName:
+        type: string
+        pattern: \S
+      middleName:
+        type: string
+        pattern: \S*
+      lastName:
+        type: string
+        pattern: \S
+      email:
+        type: string
+        pattern: \S
+      mobileNumber:
+        type: string
+        pattern: ^(9|09|639)[0-9]{9}$
+      startDate:
+        type: string
+        format: date-time
+      endDate:
+        type: string
+        format: date-time
+      brand:
+        type: string
+        pattern: \S
+      flights:
+        $ref: '#/definitions/flights'
+      members:
+        $ref: '#/definitions/members'
+  SettlementInformationItemModel:
+    type: object
+    properties:
+      accountNumber:
+        type: string
+        pattern: ^[0-9]+$
+      mobileNumber:
+        type: string
+        pattern: ^(9|09|639)[0-9]{9}$
+      emailAddress:
+        type: string
+      amount:
+        type: number
+        minimum: 1
+      requestType:
+        type: string
+        pattern: \S
+      voucher:
+        $ref: '#/definitions/voucher'
+      transactionType:
+        $ref: '#/definitions/transactionType'
+      referralCode:
+        type: string
+        minLength: 1
+        maxLength: 64
+      transactions:
+        $ref: '#/definitions/transactions'
+      createOrderExternal:
+        $ref: '#/definitions/createOrderExternal'
+      notification:
+        $ref: '#/definitions/notification'
+      landlineNumber:
+        type: string
+      billsType:
+        type: string
+      metadata:
+        $ref: '#/definitions/metadata'
+    required:
+      - requestType
+  settlementInformation:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/SettlementInformationItemModel'
+  gender:
+    type: string
+    enum:
+      - Male
+      - Female
+  BudgetProtectProfileModel:
+    type: object
+    properties:
+      lastName:
+        type: string
+        pattern: \S
+      firstName:
+        type: string
+        pattern: \S
+      middleName:
+        type: string
+      dateOfBirth:
+        type: string
+        pattern: ^\d{4}-\d{2}-\d{2}$
+      gender:
+        $ref: '#/definitions/gender'
+      email:
+        type: string
+        pattern: \S
+    required:
+      - lastName
+      - firstName
+      - dateOfBirth
+      - email
+  Model2:
+    type: object
+    properties:
+      paymentType:
+        $ref: '#/definitions/paymentType'
+      currency:
+        type: string
+        maxLength: 3
+        pattern: \S
+      countryCode:
+        type: string
+        maxLength: 2
+        pattern: \S
+      paymentInformation:
+        $ref: '#/definitions/paymentInformation'
+      settlementInformation:
+        $ref: '#/definitions/settlementInformation'
+      budgetProtectProfile:
+        $ref: '#/definitions/BudgetProtectProfileModel'
+    required:
+      - paymentType
+      - currency
+      - countryCode
+      - paymentInformation
+      - settlementInformation
+  PaymentyTypeModel:
+    type: string
+    default: XENDIT
+    enum:
+      - XENDIT
+      - GCASH
+    x-convert:
+      trim: true
+  PaymentInformationTypeModel:
+    type: string
+    enum:
+      - CC_DC
+      - DIRECT_DEBIT
+      - EWALLET
+    x-convert:
+      trim: true
+  PaymentInformationChannelCodeModel:
+    type: string
+    enum:
+      - BPI
+      - UBP
+      - RCBC
+      - PAYMAYA
+      - SHOPEEPAY
+      - GRABPAY
+    x-convert:
+      trim: true
+  PaymentInformationDirectDebitModel:
+    type: object
+    properties:
+      successUrl:
+        type: string
+        x-convert:
+          trim: true
+      failureUrl:
+        type: string
+        x-convert:
+          trim: true
+    required:
+      - successUrl
+      - failureUrl
+  PaymentInformationEWalletModel:
+    type: object
+    properties:
+      cancelUrl:
+        type: string
+        x-convert:
+          trim: true
+      failureUrl:
+        type: string
+        x-convert:
+          trim: true
+      successUrl:
+        type: string
+        x-convert:
+          trim: true
+    required:
+      - successUrl
+  PaymentInformationNotificationUrlsTypeModel:
+    type: string
+    enum:
+      - PAY_RETURN
+      - CANCEL_RETURN
+      - NOTIFICATION
+    x-convert:
+      trim: true
+  PaymentInformationNotificationUrlObject:
+    type: object
+    properties:
+      url:
+        type: string
+        x-convert:
+          trim: true
+      type:
+        $ref: '#/definitions/PaymentInformationNotificationUrlsTypeModel'
+    required:
+      - url
+      - type
+  PaymentInformationNotificationUrlsModel:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/PaymentInformationNotificationUrlObject'
+  PaymentInformationEnvInfoModel:
+    type: object
+    properties:
+      orderTerminalType:
+        type: string
+        x-convert:
+          trim: true
+      terminalType:
+        type: string
+        x-convert:
+          trim: true
+      merchantTerminalId:
+        type: string
+        x-convert:
+          trim: true
+    required:
+      - orderTerminalType
+      - terminalType
+  PaymentInformationOrderModel:
+    type: object
+    properties:
+      orderTitle:
+        type: string
+        x-convert:
+          trim: true
+    required:
+      - orderTitle
+  PaymentInformationModel:
+    type: object
+    properties:
+      productValidity:
+        type: string
+        pattern: ^[0-9]+$
+        x-convert:
+          trim: true
+      type:
+        $ref: '#/definitions/PaymentInformationTypeModel'
+      paymentMethodId:
+        type: string
+        x-convert:
+          trim: true
+      productName:
+        type: string
+        x-convert:
+          trim: true
+      productId:
+        type: string
+        x-convert:
+          trim: true
+      reusability:
+        type: string
+        x-convert:
+          trim: true
+      merchantId:
+        type: string
+        x-convert:
+          trim: true
+      channelCode:
+        $ref: '#/definitions/PaymentInformationChannelCodeModel'
+      directDebit:
+        $ref: '#/definitions/PaymentInformationDirectDebitModel'
+      eWallet:
+        $ref: '#/definitions/PaymentInformationEWalletModel'
+      notificationUrls:
+        $ref: '#/definitions/PaymentInformationNotificationUrlsModel'
+      envInfo:
+        $ref: '#/definitions/PaymentInformationEnvInfoModel'
+      order:
+        $ref: '#/definitions/PaymentInformationOrderModel'
+      signAgreementPay:
+        type: boolean
+      subMerchantName:
+        type: string
+        x-convert:
+          trim: true
+      subMerchantId:
+        type: string
+        x-convert:
+          trim: true
+  SettlementInformationRequestTypeModel:
+    type: string
+    default: BuyESIM
+    enum:
+      - BuyESIM
+      - BuyESIMLocal
+      - BuyESIMTM
+      - PtoESIM
+      - DeviceTransfer
+    x-convert:
+      trim: true
+  CreateEsimPaymentSessionRequestSettlementInformationObject:
+    type: object
+    properties:
+      mobileNumber:
+        type: string
+        pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
+        x-convert:
+          trim: true
+      emailAddress:
+        type: string
+        x-convert:
+          trim: true
+      amount:
+        type: number
+        minimum: 1
+      requestType:
+        $ref: '#/definitions/SettlementInformationRequestTypeModel'
+    required:
+      - mobileNumber
+      - amount
+  CreateEsimPaymentSessionRequestSettlementInformationModel:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/CreateEsimPaymentSessionRequestSettlementInformationObject'
+  CreateEsimPaymentSessionRequestPayload:
+    type: object
+    properties:
+      paymentType:
+        $ref: '#/definitions/PaymentyTypeModel'
+      paymentInformation:
+        $ref: '#/definitions/PaymentInformationModel'
+      settlementInformation:
+        $ref: >-
+          #/definitions/CreateEsimPaymentSessionRequestSettlementInformationModel
+    required:
+      - paymentInformation
+      - settlementInformation
+  CreateEsimPaymentSessionResultModel:
+    type: object
+    properties:
+      tokenPaymentId:
+        type: string
+    required:
+      - tokenPaymentId
+  CreateEsimPaymentSessionResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/CreateEsimPaymentSessionResultModel'
+    required:
+      - result
+  Model3:
+    type: object
+    properties:
+      accountNumber:
+        type: string
+      status:
+        type: string
+        pattern: \S
+      payment_code:
+        type: string
+      expiry:
+        type: string
+      description:
+        type: string
+    required:
+      - status
+  accounts:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/Model3'
+  paymentMethods:
+    type: array
+    items:
+      type: string
+  storedPaymentMethods:
+    type: array
+    items:
+      type: string
+  actions:
+    type: array
+    items:
+      type: string
+  payload:
+    type: object
+    properties:
+      paymentId:
+        type: string
+        pattern: \S
+      paymentSession:
+        type: string
+        pattern: \S
+      checkoutUrl:
+        type: string
+        pattern: \S
+      error:
+        type: string
+        pattern: \S
+        x-alternatives:
+          - type: string
+            pattern: \S
+          - $ref: '#/x-alt-definitions/error'
+          - $ref: '#/x-alt-definitions/Model2'
+      accounts:
+        $ref: '#/definitions/accounts'
+      paymentMethods:
+        $ref: '#/definitions/paymentMethods'
+      paymentResult:
+        $ref: '#/definitions/notification'
+      storedPaymentMethods:
+        $ref: '#/definitions/storedPaymentMethods'
+      merchantAccount:
+        type: string
+      transactionId:
+        type: string
+        pattern: \S
+      refundAmount:
+        type: string
+        pattern: \S
+      status:
+        type: string
+        pattern: \S
+      actions:
+        $ref: '#/definitions/actions'
+    required:
+      - paymentId
+  Model4:
+    type: object
+    properties:
+      name:
+        type: string
+        pattern: \S
+      payload:
+        $ref: '#/definitions/payload'
+    required:
+      - name
+      - payload
+  Model5:
+    type: object
+    properties:
+      notification:
+        $ref: '#/definitions/Model4'
+    required:
+      - notification
+  PaymentSessionCallbackResultModel:
+    type: object
+    properties:
+      notificationResponse:
+        type: string
+    required:
+      - notificationResponse
+  PaymentSessionCallbackResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/PaymentSessionCallbackResultModel'
+    required:
+      - result
+x-alt-definitions:
+  Model1:
+    type: object
+    properties:
+      message:
+        type: string
+        pattern: \S
+    required:
+      - message
+  error:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/x-alt-definitions/Model1'
+  Model2:
+    type: object
+    properties:
+      error_code:
+        type: string
+        pattern: \S
+      message:
+        type: string
+        pattern: \S
+    required:
+      - message

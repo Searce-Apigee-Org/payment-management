@@ -1,14 +1,19 @@
-version: '3.8'
-
 services:
-  app:
+  payment-management:
     build:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
-    container_name: app
+    container_name: payment-management
     ports:
-      - "80:8080"
+      - '8080:8080'
+    depends_on:
+      - mongo
+      - wiremock
+      - redis
+    environment:
+      - WIREMOCK_HOST=wiremock
+      - WIREMOCK_PORT=8080
     volumes:
       - ./:/app
     env_file:
@@ -16,11 +21,30 @@ services:
     networks:
       - app-network
 
+  mongo:
+    image: mongo:latest
+    container_name: fake-mongo
+    ports:
+      - '27017:27017'
+    networks:
+      - app-network
+    volumes:
+      - ./data/mongodb:/data/db
+
+  mongo-seed:
+    image: mongo:latest
+    container_name: fake-mongo-seed
+    depends_on:
+      - mongo
+    volumes:
+      - './mocks/seeds:/seeds'
+    entrypoint: ['bash', '/seeds/seedMongoDB.sh']
+    networks:
+      - app-network
+
   wiremock:
     image: wiremock/wiremock:latest
     container_name: wiremock
-    ports:
-      - '8080:8080'
     volumes:
       - ./mocks/wiremock/mappings:/home/wiremock/mappings
       - ./mocks/wiremock/__files:/home/wiremock/__files
@@ -28,24 +52,11 @@ services:
       - app-network
     command: ['--verbose']
 
-  mongo:
-    image: mongo:latest
-    container_name: mongo
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
-    volumes:
-      - ./data/mongodb:/data/db
-    networks:
-      - app-network
-
   redis:
-    image: redis:latest
+    image: docker.io/redis:latest
     container_name: redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - ./data/redis:/data
     networks:
@@ -54,3 +65,7 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  mongodata:
+    external: true

@@ -1,0 +1,61 @@
+sequenceDiagram
+    title GetPaymentSessionByTokenPaymentId
+
+    participant Consumer
+    participant CXS
+    participant MongoDB
+    participant CXS_Lambda
+
+    Consumer->>CXS: Invoke **GetPaymentSessionByTokenPaymentId**
+    activate CXS
+
+    CXS->>CXS: Validate Request
+
+    CXS->>MongoDB: Retrieve **PaymentSession using TokenPaymentId**
+    activate MongoDB
+    MongoDB-->>CXS: Response **PaymentSession details**
+    deactivate MongoDB
+
+    alt TokenPaymentId Not found
+        CXS-->>Consumer: Return **Error 404: Payment Id not found**
+    end
+
+    alt PaymentSession.requestType == "PayBills" AND tokenPrefix == "GLA"
+        note right of CXS: Default value<br>Set **transaction.questIndicator = 'N'**
+
+        alt status like "AUTHORIZED" OR status like "AUTHORISED"
+            note right of CXS: Get details from **PaymentSession**:<br>uuid,<br>questType = 'PayBills',<br>mobileNumber,<br>accountNumber,<br>userToken
+            
+            CXS->>CXS_Lambda: Invoke **AddAccountQuest Lambda**
+            activate CXS_Lambda
+            CXS_Lambda-->>CXS: Response **StatusCode and QuestIndicator**
+            deactivate CXS_Lambda
+
+            alt StatusCode == "200" AND questIndicator == "Y"
+                note right of CXS: Set **transaction.questIndicator = 'Y'**
+                CXS->>MongoDB: Save PaymentSession details
+                activate MongoDB
+                MongoDB-->>CXS: Response
+                deactivate MongoDB
+            end
+        end
+    end
+
+    alt PaymentSession.requestType == "BBPrepaidPromo" OR<br>PaymentSession.requestType == "BBPrepaidRepair" AND status == "GCASH_AUTHORISED"
+        CXS->>MongoDB: getPrepaidFiberServiceOrders
+        MongoDB-->>CXS: return orderId
+    else PaymentSession.requestType == "BBPrepaidRepair" AND status == "GCASH_AUTHORISED"
+        CXS->>MongoDB: getPrepaidFiberRepairOrders
+        MongoDB-->>CXS: return appointmentId
+    else PrepaidFiberServiceOrders or PrepaidFiberRepairOrders == failed
+        CXS->>MongoDB: get refund status
+        MongoDB-->>CXS: response
+    end
+
+    alt Channel == "SUPERAPP"
+        CXS->>CXS: Invoke **LoyaltySimulator Lambda**<br>to return points earned per SKU
+    end
+
+    CXS->>CXS: Form Response
+    CXS-->>Consumer: Return **HTTP 200**
+    deactivate CXS

@@ -1,12 +1,12 @@
-import config from '../../convict/config.js';
+import { config } from '../../convict/config.js';
 
 const swaggerHost = config.get('swaggerHost');
 
 const swaggerOptions = {
   info: {
-    title: 'Mock API Documentation',
+    title: 'Payment Management API Documentation',
     version: '1.0.0',
-    description: 'Detailed API documentation for Mock endpoints',
+    description: 'Detailed API documentation for Payment Management endpoints',
   },
   host: swaggerHost,
   schemes: ['https', 'http'],

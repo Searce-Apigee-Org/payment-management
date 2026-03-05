@@ -1,0 +1,8 @@
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:bil="http://www.globe.com/warcraft/wsdl/billing/">
+   <soap:Header/>
+   <soap:Body>
+      <bil:GetAccountInfo>
+         ${xmlRequest}
+      </bil:GetAccountInfo>
+   </soap:Body>
+</soap:Envelope>
