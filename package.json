@@ -1,0 +1,50 @@
+{
+  "name": "happijs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "husky",
+    "prestart": "npm install",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "NODE_ENV=test lab -v -C -l",
+    "test:coverage": "NODE_ENV=test c8 --reporter=html --reporter=text --check-coverage --lines=90 --functions=90 --branches=90 --statements=90 -o ./coverage lab -l",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\"",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "generate:swagger": "NODE_ENV=test node src/scripts/generateSwaggerYaml.js",
+    "autodox": "node node_modules/@globetel/autodox/index.js docs/attributes.json"
+  },
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@globetel/cxs-core": "^1.9.3",
+    "@hapi/hapi": "^21.3.12",
+    "@hapi/inert": "^7.1.0",
+    "@hapi/vision": "^7.0.3",
+    "convict": "^6.2.4",
+    "convict-format-with-validator": "^6.2.0",
+    "dotenv": "^16.4.7",
+    "hapi-swagger": "^17.3.2",
+    "joi": "^17.13.3",
+    "mongoose": "^8.9.5"
+  },
+  "devDependencies": {
+    "@globetel/autodox": "^1.2.6",
+    "@hapi/code": "^9.0.3",
+    "@hapi/eslint-plugin": "^7.0.0",
+    "@hapi/lab": "^26.0.0",
+    "c8": "^10.1.3",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "husky": "^9.1.7",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.4.2",
+    "sinon": "^19.0.2",
+    "prettier-plugin-organize-imports": "^4.1.0"
+  }
+}

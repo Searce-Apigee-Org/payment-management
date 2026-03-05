@@ -1,0 +1,8 @@
+node_modules/
+config/local.json
+coverage.html
+data
+.env
+coverage/
+dump.rdb
+.npmrc
