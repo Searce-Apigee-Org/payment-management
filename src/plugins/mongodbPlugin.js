@@ -1,15 +1,14 @@
-import config from '../../convict/config.js';
+import { config } from '../../convict/config.js';
 
 const mongoDbPlugin = {
-  name: 'mongodbPlugin',
+  name: 'mongoDbPlugin',
   version: '1.0.0',
   register: async function (server, options) {
     try {
       const { mongoose, mongo } = options;
       if (!mongoose) {
-        throw new Error('Mongoose instance must be provided to mongodbPlugin');
+        throw new Error('Mongoose instance must be provided to mongoDbPlugin');
       }
-
       const mongoUri = config.get('mongo.uri');
       const mongoClient = mongo.getMongoClient(mongoUri);
 

@@ -1,0 +1,350 @@
+---
+config:
+  theme: redux-dark-color
+  look: classic
+---
+sequenceDiagram
+    title CreatePaymentSession
+    participant Consumer
+    participant CXS
+    participant OneAPI
+    participant ECPay
+    participant MongoDB
+    participant GSM
+    participant PaymentService
+    participant GCS
+    participant DNO
+    Consumer->>CXS: Invoke CreatePaymentSession
+    activate CXS
+    CXS->>CXS: Validate Request
+    alt Invalid Request
+        CXS-->>Consumer: Error Response
+        deactivate CXS
+    end
+    CXS->>CXS: Get client_id from request headers
+    CXS->>MongoDB: Get Channel Config by client_id
+    activate MongoDB
+    alt No Config Found
+        CXS-->>Consumer: Error 50001
+    end
+    MongoDB-->>CXS: Config Details
+    deactivate MongoDB
+    alt extendsConfig exists
+        CXS->>CXS: Load extendsConfig + Get GSM Path
+        Note right of CXS: channelDiscountAllowed = TRUE. Does NOT replace BAU config for SUPERAPP, it will extend the check mapping per channel in the db if "extendsConfig" exists
+    end
+    alt Channel SUPERAPP AND PaymentType GCash AND bindingRequestId exists in paymentInformation
+        CXS->>MongoDB: Validate bindingRequestId + UUID
+        MongoDB-->>CXS: Response
+        alt Not matched or not active
+            CXS-->>Consumer: Error 40005
+        end
+    end
+    alt (Channel SUPERAPP AND PaymentType GCash/XENDIT)
+        CXS->>GSM: Get whitelist requestType for budgetProtect
+        GSM-->>CXS: Response
+        CXS->>CXS: Check budgetProtect flag
+        alt budgetProtect = TRUE
+            CXS->>CXS: Validate requestType in whitelist
+            alt not allowed
+                CXS-->>Consumer: Error 40005
+            end
+        else FALSE/NULL
+            alt budgetProtectProfile exists
+                CXS-->>Consumer: Error 40005
+            end
+        end
+    else not in criteria
+        CXS-->>Consumer: Error 40005
+    end
+    alt RequestType BuyLoad
+        CXS->>MongoDB: Get Shared Config
+        MongoDB-->>CXS: Shared Config (maxDailyAmount etc)
+        alt Shared Config exists
+            CXS->>CXS: Use Shared maxDailyAmount
+        end
+        CXS->>CXS: Validate daily limits
+        alt exceeded
+            CXS-->>Consumer: Error 40005
+        end
+        alt Channel SUPERAPP OR channelDiscountAllowed TRUE
+            alt SettlementInformation.Amount > Total Amount
+                CXS-->>Consumer: Error 40005
+            end
+        end
+    end
+    alt Channel SUPERAPP
+        alt BuyLoad via Keyword
+            alt Voucher exists
+                alt User-token missing
+                    CXS-->>Consumer: Error 40005
+                end
+                CXS->>MongoDB: Get enrolled accounts via UUID
+                MongoDB-->>CXS: Response
+                alt mobileNumber/accountNumber not associated
+                    CXS-->>Consumer: Error 40005
+                end
+                CXS->>OneAPI: GetVoucher API
+                OneAPI-->>CXS: Response
+                alt invalid voucher
+                    CXS-->>Consumer: Error 40005
+                else StatusCode != Successful & error=300
+                    CXS-->>Consumer: Error 50201
+                end
+                CXS->>CXS: Validate voucher discount
+                alt voucher.type=percentage
+                    Note right of CXS: discountedAmount = sum * (1 - discount%)
+                else fixed
+                    Note right of CXS: discountedAmount = amount - discount
+                end
+                CXS->>GSM: Get MAX_DISCOUNT_PERCENTAGE
+                GSM-->>CXS: Response
+                CXS->>CXS: Validate max discount rule
+                alt Over discounted
+                    CXS-->>Consumer: Error 40005
+                end
+            else No Voucher
+                alt extendsConfig TRUE & channelDiscountAllowed TRUE
+                    CXS->>GSM: Get discount value from extendsConfig
+                    GSM-->>CXS: Response
+                else extendsConfig TRUE & channelDiscountAllowed FALSE
+                    Note right of CXS: discount = 0%
+                else extendsConfig FALSE
+                    CXS->>GSM: Get discount from consumer_param_store
+                    GSM-->>CXS: Response
+                end
+            end
+            alt GCASH
+                CXS->>CXS: Check orderTitle = SA-LOAD
+            else DROPIN
+                CXS->>CXS: Check entityType = SA-LOAD
+            else XENDIT
+                CXS->>CXS: Check productName = SA-LOAD
+            end
+            alt XENDIT AND CC/DC
+                CXS->>GSM: Retrieve mid
+                GSM-->>CXS: Response
+                CXS->>CXS: Call GetAccountInfo
+                alt Invalid HIP
+                    CXS-->>Consumer: Error 50202
+                end
+                CXS->>CXS: Set mid (Prepaid BB)
+            end
+        else BuyLoad via Wallet
+            alt extendsConfig TRUE & channelDiscountAllowed TRUE
+                CXS->>GSM: Get discount from extendsConfig (Retailer)
+                GSM-->>CXS: Response
+            else extendsConfig TRUE & channelDiscountAllowed FALSE
+            else extendsConfig FALSE
+                CXS->>GSM: Get retailer_param_store discount
+                GSM-->>CXS: Response
+            end
+            alt GCASH
+                CXS->>CXS: Check orderTitle = SA-LOADRET
+            else DROPIN
+                CXS->>CXS: Check entityType = SA-LOADRET
+            else XENDIT
+                CXS->>CXS: Check productName = SA-LOADRET
+            end
+            alt XENDIT AND CC/DC
+                CXS->>GSM: Retrieve mid
+                GSM-->>CXS: Response
+                CXS->>CXS: Call GetAccountInfo
+                alt HIP Invalid
+                    CXS-->>Consumer: Error 50202
+                end
+                CXS->>CXS: Set midLabel (Prepaid BB)
+            end
+        end
+        alt Both keyword+wallet exist
+            CXS-->>Consumer: Error 40005
+        end
+        CXS->>CXS: Calculate & Validate Discount Transaction
+        alt Invalid discount
+            CXS-->>Consumer: Error 40005
+        end
+    else Not SUPERAPP but extendsConfig TRUE & channelDiscountAllowed TRUE
+        CXS->>GSM: Get discount (Consumer or Retailer)
+        GSM-->>CXS: Response
+        CXS->>CXS: Calculate discount
+        alt invalid
+            CXS-->>Consumer: Error 40005
+        end
+    else Not SUPERAPP & (no extendsConfig or channelDiscountAllowed FALSE)
+        CXS->>CXS: Validate Settlement.Amount = Total
+        alt invalid
+            CXS-->>Consumer: Error 40005
+        end
+    end
+    alt RequestType BuyPromo
+        CXS->>HIP: GetDetailsByMSISDN
+        HIP-->>CXS: Response
+        CXS->>CXS: Extract Brand
+        CXS->>GCS: Lookup amount + serviceId
+        GCS-->>CXS: Lookup Result
+        alt empty/invalid
+            CXS-->>Consumer: Error 40005
+        end
+        alt PROMO mm=1
+            CXS->>CXS: Validate Location
+            alt not eligible
+                CXS-->>Consumer: Error
+            end
+        end
+        alt Channel SUPERAPP
+            alt GCASH
+                CXS->>CXS: Set orderTitle for promo
+            else DROPIN
+                CXS->>CXS: Set entityType
+            else XENDIT
+                CXS->>CXS: Set productName
+            end
+        end
+        alt Voucher exists
+            CXS->>MongoDB: Get enrolled accounts
+            MongoDB-->>CXS: Response
+            alt invalid association
+                CXS-->>Consumer: Error 40005
+            end
+            CXS->>OneAPI: GetVoucher
+            OneAPI-->>CXS: Response
+            alt invalid
+                CXS-->>Consumer: Error 40005
+            end
+            CXS->>GSM: Get MAX_DISCOUNT_PERCENTAGE
+            GSM-->>CXS: Response
+            CXS->>CXS: Validate max discount
+            alt Over discounted
+                CXS-->>Consumer: Error 40005
+            end
+            alt Settlement.Amount > Total
+                CXS-->>Consumer: Error 40005
+            end
+            alt XENDIT CC/DC
+                CXS->>GSM: Retrieve mid
+                GSM-->>CXS: Response
+                CXS->>CXS: Call GetAccountInfo
+                alt invalid
+                    CXS-->>Consumer: Error 50202
+                end
+                CXS->>CXS: Set midLabel
+            end
+        end
+    end
+    alt RequestType VolumeBoost
+        CXS->>CXS: Validate verificationToken
+        alt invalid
+            CXS-->>Consumer: Error 40002
+        end
+    end
+    alt RequestType BuyBBContent
+        CXS->>CXS: Validate Settlement.Amount = Total
+        alt invalid
+            CXS-->>Consumer: Error 40002
+        end
+        CXS->>CXS: Validate (productCode, identityType, requestDate, provider, identityValue, amount)
+    end
+    alt RequestType ECPay
+        alt Channel SUPERAPP
+            CXS->>MongoDB: Get ECPayTransaction by reference
+            MongoDB-->>CXS: Response
+            alt mismatch
+                CXS-->>Consumer: Error 40005
+            end
+            alt GCASH
+                CXS->>CXS: Set orderTitle SA-ECPAY
+                CXS->>GSM: Get processingFeePercent
+                GSM-->>CXS: Response
+                CXS->>CXS: Compute processingFee & totalAmount
+            else DROPIN/XENDIT
+                CXS->>CXS: Set entityType/productName SA-ECPAY
+                CXS->>CXS: totalAmount = amount + serviceCharge
+            end
+        end
+    end
+    alt RequestType PayBills
+        alt XENDIT CC/DC
+            CXS->>HIP: GetAccountInfo
+            HIP-->>CXS: Response
+            CXS->>GSM: Retrieve mid
+            GSM-->>CXS: Response
+            CXS->>CXS: Set midLabel + account info
+        else NOT CC/DC
+            CXS->>HIP: GetAccountInfo
+            HIP-->>CXS: Response
+        end
+    end
+    alt RequestType Non-Bill
+        alt Channel NOT in (GOR,GOMO,DNO)
+            CXS-->>Consumer: Error 40002
+        end
+        alt Channel GlobeOnline/GOMO/Reimagined
+            alt XENDIT CC/DC
+                CXS->>GSM: Retrieve mid
+                CXS->>CXS: GetAccountInfo Lambda
+            end
+        end
+    end
+    alt RequestType ChangeSim
+        alt Channel SUPERAPP
+            alt XENDIT
+                CXS->>CXS: Check productName=SA-CSIM
+            else GCASH
+                CXS->>CXS: Check orderTitle=SA-CSIM
+            end
+            loop Settlement[x]
+                CXS->>GCS: Check amount whitelist
+                GCS-->>CXS: Response
+                loop Transaction[x]
+                    CXS->>CXS: Validate transactionId
+                    alt invalid
+                        CXS-->>Consumer: Error 40002
+                    end
+                end
+            end
+        end
+    end
+    alt RequestType BBPrepaidPromo or BBPrepaidRepair
+        CXS->>DNO: get_offers
+        DNO-->>CXS: Response
+        CXS->>CXS: Validate Promo/Repair Price
+        alt mismatch
+            CXS-->>Consumer: Error 40002
+        end
+    end
+    alt Channel SUPERAPP AND PaymentType GCASH/XENDIT
+        CXS->>MongoDB: Check enrolled accounts
+        MongoDB-->>CXS: Response
+        alt No records
+            CXS->>HIP: GetDetailsByMSISDN
+            HIP-->>CXS: Response
+        end
+    end
+    CXS->>GSM: Get Channel-Specific Payment Auth Token
+    GSM-->>CXS: Token
+    alt token expired/missing
+        CXS->>GSM: Get Channel Payment Service Credentials
+        GSM-->>CXS: Credentials
+        CXS->>PaymentService: POST Acquiring Auth Token
+        PaymentService-->>CXS: Token + Expiry
+        CXS->>GSM: Store Token + Expiry
+    end
+    alt Brand exists
+        CXS->>CXS: Include brand in Payment-Authorization
+    end
+    alt midLabel exists
+        CXS->>CXS: Include midLabel
+    end
+    alt bindingRequestId exists
+        CXS->>CXS: Include bindingRequestId + uuid
+    end
+    CXS->>PaymentService: POST CreatePaymentSession
+    PaymentService-->>CXS: paymentId
+    alt bindingRequestId expired
+        CXS-->>Consumer: Error 40006
+    else inactive
+        CXS-->>Consumer: Error 40007
+    end
+    CXS->>MongoDB: Save tokenPaymentId, paymentType, details, deviceId, userToken, channelId, notification, status=PROCESSING, budgetProtectProfile
+    CXS->>CXS: Form response
+    CXS-->>Consumer: HTTP 201 Created

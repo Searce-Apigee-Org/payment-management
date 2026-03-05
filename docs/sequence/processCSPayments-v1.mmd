@@ -1,0 +1,83 @@
+sequenceDiagram
+    participant Consumer
+    participant CXS
+    participant Redis
+    participant Secret Manager
+    participant Token Store
+    participant GOR
+    participant MongoDB
+
+    Consumer->>CXS: Invoke "ProcessCSPayments-V1"\nPOST /v1/paymentManagement/internal/csPayments\nHeaders: x-credential-identifier, cxscachecontrol\nPayload: { tokenPaymentId, paymentStatus, transactionId, paymentChannel }
+    CXS->>CXS: Validate request (csPaymentsValidation.processCSPaymentsRequestSchema)
+
+    alt If request is invalid
+        CXS-->>Consumer: HTTP 400 Bad Request
+    end
+
+    CXS->>Redis: pre "setCache"
+    Redis-->>CXS: OK
+    CXS->>CXS: pre "getRequestClientId" -> reqClientId
+
+    alt paymentStatus does NOT include "AUTHORISED"
+        CXS-->>Consumer: HTTP 204 No Content
+    else AUTHORISED
+        CXS->>CXS: formatTokenPaymentId = "xxx-xxxxxxxx..."\nSet payload.paymentStatus = "AUTHORIZED"
+
+        par Read prerequisites
+            CXS->>Secret Manager: Get "CSPaymentsConfig"
+            Secret Manager-->>CXS: { config.max_entry }
+        and
+            CXS->>Secret Manager: Get "CSPaymentsCredentials"
+            Secret Manager-->>CXS: { headers.authorization }
+        and
+            CXS->>Token Store: Fetch "Access Token" (CHANGE_SIM, reqClientId)
+            Token Store-->>CXS: cachedToken
+        and
+            CXS->>MongoDB: Find Payment Session by { formatTokenPaymentId }
+            MongoDB-->>CXS: paymentSessionDetails
+        end
+
+        opt If cached token missing/expired
+            CXS->>GOR: getAccessToken(credentials)
+            GOR-->>CXS: access_token
+            CXS->>Token Store: updateAccessToken(access_token, reqClientId, CHANGE_SIM)
+            Token Store-->>CXS: OK
+        end
+
+        loop For each settlementDetail in paymentSessionDetails.settlementDetails
+            alt requestType != CHANGE_SIM OR provisionStatus == FAILED
+                CXS->>CXS: Skip this settlementDetail
+            else Process with retry up to config.max_entry
+                loop Retry 1..max_entry
+                    CXS->>GOR: updatePaymentTokenId(formatTokenPaymentId, paymentStatus, transactionId, paymentChannel, access_token/cachedToken)
+                    alt response.statusCode = 204
+                        CXS->>MongoDB: Update settlementDetails[index].transactions[0].provisionStatus = "SUCCESS"
+                        MongoDB-->>CXS: saved
+                        break
+                    else 401 Unauthorized
+                        CXS->>GOR: getAccessToken(credentials)
+                        GOR-->>CXS: access_token
+                        CXS->>Token Store: updateAccessToken(access_token, reqClientId, CHANGE_SIM)
+                        Token Store-->>CXS: OK
+                        CXS->>GOR: updatePaymentTokenId(..., newAccessToken)
+                        GOR-->>CXS: response
+                    else Other error
+                        CXS->>CXS: Log and continue/retry
+                    end
+                end
+                alt All retries exhausted without 204
+                    CXS->>MongoDB: Update provisionStatus = "FAILED"
+                    MongoDB-->>CXS: saved
+                    CXS->>CXS: Mark failure for this settlement
+                end
+            end
+        end
+
+        alt All applicable settlements processed
+            CXS-->>Consumer: HTTP 204 No Content
+        else Error occurs
+            CXS-->>Consumer: HTTP 5xx with error body
+        end
+    end
+
+    Note over CXS,Consumer: Route: CSPaymentsRoutes-V1 (id: ProcessCSPayments-V1)\nResponses: 204, 400, 401, 403, 404, 500

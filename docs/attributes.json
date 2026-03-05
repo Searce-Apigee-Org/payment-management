@@ -1,77 +1,86 @@
 {
   "microservice": {
-    "identifier": "<<CHANGE_ME>>",
-    "displayName": "<<CHANGE_ME>>",
-    "description": "microservice-template",
+    "identifier": "payment-management",
+    "displayName": "payment-management",
+    "description": "payment-management",
     "baseURL": "subdomain.domain.com",
     "team": "cxs",
     "status": "LIVE",
     "versions": [
       {
-        "displayName": "v1 is changed now ",
-        "identifier": "specification-v1",
-        "changeLogDescription": "Testing",
+        "displayName": "payment-management-v1",
+        "identifier": "payment-management-v1",
+        "changeLogDescription": "payment-management-v1",
         "specification": {
-          "identifier": "microservice-template-specification",
-          "displayName": "microservice-template-specification",
+          "identifier": "payment-management-v1",
+          "displayName": "payment-management-v1",
           "filePath": "docs/swagger.yaml"
         }
       }
     ],
     "endpoints": [
       {
-        "identifier": "standalone-test-route-v1",
-        "displayName": "Standalone test route",
-        "path": "/mocks/test",
-        "method": "GET",
-        "description": "To validate service functionality without external dependencies.",
-        "status": "MOCK",
-        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
-      },
-      {
-        "identifier": "get-all-mocks-v1",
-        "displayName": "Get all mocks",
-        "path": "/mocks",
-        "method": "GET",
-        "description": "Fetch a list of all mocks.",
-        "status": "MOCK",
-        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
-      },
-      {
-        "identifier": "create-mock-v1",
-        "displayName": "Create a new mock",
-        "path": "/mocks",
+        "displayName": "CreateESIMPaymentSession-V1",
+        "identifier": "create-esim-payment-session-v1",
+        "path": "/v1/paymentManagement/esim/payments/session",
         "method": "POST",
-        "description": "Registers a new mock with simplified keys (mockStringKey, mockIntKey, etc.).",
-        "status": "MOCK",
-        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+        "description": "Fetches payment session token and returns it.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/createEsimPaymentSession-v1.mmd"
       },
       {
-        "identifier": "get-mock-by-id-v1",
-        "displayName": "Get mock by ID",
-        "path": "/mocks/{id}",
+        "displayName": "GetPaymentReceipt-V1",
+        "identifier": "get-payment-receipt-v1",
+        "path": "/v1/paymentManagement/receipts/{receiptId}",
         "method": "GET",
-        "description": "Fetch a mock's details by providing the mock ID.",
-        "status": "MOCK",
-        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+        "description": "Retrieves receipt for a given payment transaction",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/getPaymentReceipt-v1.mmd"
       },
       {
-        "identifier": "update-mock-by-id-v1",
-        "displayName": "Update mock details",
-        "path": "/mocks/{id}",
-        "method": "PUT",
-        "description": "Update the details of an existing mock by ID.",
-        "status": "MOCK",
-        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+        "displayName": "GetPaymentSessionByTokenPaymentId-V1",
+        "identifier": "get-payment-session-v1",
+        "path": "/v1/paymentManagement/payments/{tokenPaymentId}/sessions",
+        "method": "GET",
+        "description": "Fetches payment session using token payment id.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/getPaymentSession-v1.mmd"
       },
       {
-        "identifier": "delete-mock-by-id-v1",
-        "displayName": "Delete mock by ID",
-        "path": "/mocks/{id}",
-        "method": "DELETE",
-        "description": "Delete an existing mock by ID.",
-        "status": "MOCK",
-        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+        "displayName": "GetPayments-V1",
+        "identifier": "get-payments-v1",
+        "path": "/v1/paymentManagement/payments",
+        "method": "GET",
+        "description": "To retrieve account payment history using GetAccountPaymentHistory API of EOR via CXS",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/getPayments-v1.mmd"
+      },
+      {
+        "displayName": "CreatePaymentSession-V1",
+        "identifier": "create-payment-session-v1",
+        "path": "/v1/paymentManagement/payments/sessions",
+        "method": "POST",
+        "description": "Requests payment session token from Payment Service and sends the session token as response.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/createPaymentSession-v1.mmd"
+      },
+      {
+        "displayName": "PaymentSessionCallback-V1",
+        "identifier": "payment-session-callback-v1",
+        "path": "/v1/paymentManagement/payments/sessions/callback",
+        "method": "POST",
+        "description": "An API for receiving payment session data from Payment Service",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/paymentSessionCallback-v1.mmd"
+      },
+      {
+        "displayName": "ProcessCSPayments-V1",
+        "identifier": "process-cs-payments-v1",
+        "path": "/v1/paymentManagement/internal/csPayments",
+        "method": "POST",
+        "description": "To update the payment status of a change sim transaction",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/processCSPayments-v1.mmd"
       }
     ]
   }

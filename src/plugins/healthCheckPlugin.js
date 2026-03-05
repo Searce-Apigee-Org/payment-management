@@ -5,7 +5,7 @@ const healthCheckPlugin = {
     server.route([
       {
         method: 'GET',
-        path: '/health',
+        path: '/v1/paymentManagement/health',
         handler: () => {
           return { message: 'OK' };
         },
