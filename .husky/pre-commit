@@ -1,3 +1,23 @@
 #!/usr/bin/env sh
-npm run lint -- --fix && npm run format && npm run generate:swagger
-git diff --name-only --cached --diff-filter=d | xargs git add
+
+set -e
+
+# Exit early if no staged changes
+if git diff --cached --quiet --diff-filter=ACMR; then
+  exit 0
+fi
+
+# Fix linting issues
+npm run lint -- --fix
+
+# Verify no linting errors remain
+if ! npm run lint; then
+  echo "❌ Linting errors found that could not be auto-fixed"
+  echo "Please fix the errors and try committing again"
+  exit 1
+fi
+
+npm run format
+npm run generate:swagger
+
+git diff --name-only --cached --diff-filter=d -z | xargs -0 git add

@@ -1,0 +1,12 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPathPattern": "/v1/paymentManagement/topUp/[^/]+"
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Length": "0"
+    }
+  }
+}

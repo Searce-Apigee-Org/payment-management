@@ -1,0 +1,29 @@
+{
+  "result": {
+    "payments": [
+      {
+        "amount": 275.0,
+        "date": "2021-01-01",
+        "accountNumber": "1001001234",
+        "mobileNumber": "09171234532",
+        "receiptId": "OR-210101",
+        "sourceId": "SRC-POS",
+        "printable": true,
+        "notified": true,
+        "loadTime": "2021-01-01T10:00:00"
+      },
+      {
+        "amount": 325.5,
+        "date": "2021-02-02",
+        "accountNumber": "1001001234",
+        "mobileNumber": "09171234532",
+        "receiptId": "OR-210202",
+        "sourceId": "SRC-ONLINE",
+        "printable": false,
+        "notified": true,
+        "loadTime": "2021-02-02T14:30:00"
+      }
+    ],
+    "token": "mocked-signed-token"
+  }
+}
