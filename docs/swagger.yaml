@@ -1,0 +1,360 @@
+basePath: /
+info:
+  title: Mock API Documentation
+  version: 1.0.0
+  description: Detailed API documentation for Mock endpoints
+schemes:
+  - https
+  - http
+securityDefinitions:
+  jwt:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: >-
+      JWT authorization using the Bearer scheme. Example: 'Authorization: Bearer
+      {token}'
+security:
+  - jwt: []
+swagger: '2.0'
+host: 0.0.0.0:80
+tags: []
+paths:
+  /mocks:
+    get:
+      summary: Get all mocks
+      operationId: getMocks
+      description: Fetch a list of all mocks.
+      tags:
+        - v1
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/GetAllMocksResponse'
+          description: Successful
+    post:
+      summary: Create a new mock
+      operationId: postMocks
+      description: >-
+        Registers a new mock with simplified keys (mockStringKey, mockIntKey,
+        etc.).
+      parameters:
+        - type: string
+          name: authorization
+          in: header
+          required: true
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/CreateMockRequestPayloadModel'
+      tags:
+        - v1
+      responses:
+        '201':
+          schema:
+            $ref: '#/definitions/CreateMockResponse'
+          description: Created
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+  /mocks/test:
+    get:
+      summary: Standalone test route
+      operationId: getMocksTest
+      description: >-
+        A simple test endpoint to validate service functionality without
+        external dependencies.
+      tags:
+        - v1
+      responses:
+        default:
+          schema:
+            type: string
+          description: Successful
+  /mocks/{id}:
+    get:
+      summary: Get mock by ID
+      operationId: getMocksId
+      description: Fetch a mock's details by providing the mock ID.
+      parameters:
+        - type: string
+          name: authorization
+          in: header
+          required: true
+        - type: string
+          description: The mock ID
+          name: id
+          in: path
+          required: true
+      tags:
+        - v1
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/GetMockByIdResponse'
+          description: Successful
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+    put:
+      summary: Update mock details
+      operationId: putMocksId
+      description: Update the details of an existing mock by ID.
+      parameters:
+        - type: string
+          name: authorization
+          in: header
+          required: true
+        - type: string
+          description: The mock ID
+          name: id
+          in: path
+          required: true
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/UpdateMockByIdModel'
+      tags:
+        - v1
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/UpdateMockByIdResponse'
+          description: Successful
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+    delete:
+      summary: Delete mock by ID
+      operationId: deleteMocksId
+      description: Delete an existing mock by ID.
+      parameters:
+        - type: string
+          name: authorization
+          in: header
+          required: true
+        - type: string
+          description: The mock ID
+          name: id
+          in: path
+          required: true
+      tags:
+        - v1
+      responses:
+        '204':
+          description: Mock deleted successfully
+          schema:
+            type: string
+            description: Mock deleted successfully
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+definitions:
+  MockObjectKeyModel:
+    type: object
+  MockArrayKeyModel:
+    type: array
+    items:
+      type: string
+  GetMocksResponseModel:
+    type: object
+    properties:
+      id:
+        type: string
+      mockStringKey:
+        type: string
+      mockIntKey:
+        type: integer
+      mockObjKey:
+        $ref: '#/definitions/MockObjectKeyModel'
+      mockArrayKey:
+        $ref: '#/definitions/MockArrayKeyModel'
+      createdAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+      updatedAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+    required:
+      - id
+      - mockStringKey
+      - mockIntKey
+      - mockObjKey
+      - mockArrayKey
+  GetAllMocksResponse:
+    type: array
+    items:
+      $ref: '#/definitions/GetMocksResponseModel'
+  GetMockByIdResponse:
+    type: object
+    properties:
+      id:
+        type: string
+      mockStringKey:
+        type: string
+      mockIntKey:
+        type: integer
+      mockObjKey:
+        $ref: '#/definitions/MockObjectKeyModel'
+      mockArrayKey:
+        $ref: '#/definitions/MockArrayKeyModel'
+      createdAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+      updatedAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+    required:
+      - id
+      - mockStringKey
+      - mockIntKey
+      - mockObjKey
+      - mockArrayKey
+  NotFoundErrorModel:
+    type: object
+    properties:
+      statusCode:
+        type: string
+      code:
+        type: string
+        example: 40403
+      message:
+        type: string
+        example: Resource Not Found
+      details:
+        type: string
+        example: The provided OTP reference ID is not found
+      displayMessage:
+        type: string
+    required:
+      - code
+      - message
+      - details
+  NotFoundError:
+    type: object
+    properties:
+      error:
+        $ref: '#/definitions/NotFoundErrorModel'
+    required:
+      - error
+  CreateMockRequestPayloadModel:
+    type: object
+    properties:
+      mockStringKey:
+        type: string
+      mockIntKey:
+        type: integer
+      mockObjKey:
+        $ref: '#/definitions/MockObjectKeyModel'
+      mockArrayKey:
+        $ref: '#/definitions/MockArrayKeyModel'
+    required:
+      - mockStringKey
+      - mockIntKey
+      - mockObjKey
+      - mockArrayKey
+  CreateMockResponse:
+    type: object
+    properties:
+      id:
+        type: string
+      mockStringKey:
+        type: string
+      mockIntKey:
+        type: integer
+      mockObjKey:
+        $ref: '#/definitions/MockObjectKeyModel'
+      mockArrayKey:
+        $ref: '#/definitions/MockArrayKeyModel'
+      createdAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+      updatedAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+    required:
+      - id
+      - mockStringKey
+      - mockIntKey
+      - mockObjKey
+      - mockArrayKey
+  BadRequestErrorModel:
+    type: object
+    properties:
+      statusCode:
+        type: string
+      code:
+        type: string
+        example: 40003
+      message:
+        type: string
+        example: Insufficient Parameters
+      details:
+        type: string
+        example: The request parameter is missing a mandatory parameter.
+      displayMessage:
+        type: string
+    required:
+      - code
+      - message
+      - details
+  BadRequestError:
+    type: object
+    properties:
+      error:
+        $ref: '#/definitions/BadRequestErrorModel'
+    required:
+      - error
+  UpdateMockByIdModel:
+    type: object
+    properties:
+      mockStringKey:
+        type: string
+      mockIntKey:
+        type: integer
+      mockObjKey:
+        $ref: '#/definitions/MockObjectKeyModel'
+      mockArrayKey:
+        $ref: '#/definitions/MockArrayKeyModel'
+    required:
+      - mockStringKey
+      - mockIntKey
+      - mockObjKey
+      - mockArrayKey
+  UpdateMockByIdResponse:
+    type: object
+    properties:
+      id:
+        type: string
+      mockStringKey:
+        type: string
+      mockIntKey:
+        type: integer
+      mockObjKey:
+        $ref: '#/definitions/MockObjectKeyModel'
+      mockArrayKey:
+        $ref: '#/definitions/MockArrayKeyModel'
+      createdAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+      updatedAt:
+        type: string
+        format: date
+        default: '2024-10-23T09:19:11.756Z'
+    required:
+      - id
+      - mockStringKey
+      - mockIntKey
+      - mockObjKey
+      - mockArrayKey

@@ -1,0 +1,78 @@
+{
+  "microservice": {
+    "identifier": "<<CHANGE_ME>>",
+    "displayName": "<<CHANGE_ME>>",
+    "description": "microservice-template",
+    "baseURL": "subdomain.domain.com",
+    "team": "cxs",
+    "status": "LIVE",
+    "versions": [
+      {
+        "displayName": "v1 is changed now ",
+        "identifier": "specification-v1",
+        "changeLogDescription": "Testing",
+        "specification": {
+          "identifier": "microservice-template-specification",
+          "displayName": "microservice-template-specification",
+          "filePath": "docs/swagger.yaml"
+        }
+      }
+    ],
+    "endpoints": [
+      {
+        "identifier": "standalone-test-route-v1",
+        "displayName": "Standalone test route",
+        "path": "/mocks/test",
+        "method": "GET",
+        "description": "To validate service functionality without external dependencies.",
+        "status": "MOCK",
+        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+      },
+      {
+        "identifier": "get-all-mocks-v1",
+        "displayName": "Get all mocks",
+        "path": "/mocks",
+        "method": "GET",
+        "description": "Fetch a list of all mocks.",
+        "status": "MOCK",
+        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+      },
+      {
+        "identifier": "create-mock-v1",
+        "displayName": "Create a new mock",
+        "path": "/mocks",
+        "method": "POST",
+        "description": "Registers a new mock with simplified keys (mockStringKey, mockIntKey, etc.).",
+        "status": "MOCK",
+        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+      },
+      {
+        "identifier": "get-mock-by-id-v1",
+        "displayName": "Get mock by ID",
+        "path": "/mocks/{id}",
+        "method": "GET",
+        "description": "Fetch a mock's details by providing the mock ID.",
+        "status": "MOCK",
+        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+      },
+      {
+        "identifier": "update-mock-by-id-v1",
+        "displayName": "Update mock details",
+        "path": "/mocks/{id}",
+        "method": "PUT",
+        "description": "Update the details of an existing mock by ID.",
+        "status": "MOCK",
+        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+      },
+      {
+        "identifier": "delete-mock-by-id-v1",
+        "displayName": "Delete mock by ID",
+        "path": "/mocks/{id}",
+        "method": "DELETE",
+        "description": "Delete an existing mock by ID.",
+        "status": "MOCK",
+        "sequenceFilePath": "docs/sequence/mockDiagram.mmd"
+      }
+    ]
+  }
+}
