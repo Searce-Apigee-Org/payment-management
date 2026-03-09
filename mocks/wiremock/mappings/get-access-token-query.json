@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/auth/api/v1/accesstoken/?",
+    "queryParameters": {
+      "clientId": {
+        "matches": ".*"
+      },
+      "clientSecret": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "accessToken": "eyJraWQiOiI1MXhFVGJDYk1xVzdQVUw3czltRmNCY1RIYng3Y20xaUxuV2JXMXdoNzlzIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI1NTU2MDc4Yi0wMjA0LTQwYTYtOWUwYi1kMmEzYmI0NzE5MjgiLCJpc3MiOiJodHRwczovL2NoYXJnaW5nLnBheW1lbnQtc3QuZ2xvYmV0ZWwuY2xvdWQiLCJhdWQiOiJDSEFSR0lOR19BUElTIiwiZXhwIjoxNzU4ODczNDk1LCJpYXQiOjE3NTg4Njk4OTV9.MUIIA0R72D8-BsCOjxVz3LUTOp68Yi9aUdlatkSAf0thJwAwOYU1V7OhBXdpAOPD7wjYTJSQZlJvIUaPF5ybft64L5sMCnvJD1n-QbfGxoa57m05dLE1OmzKG9wtC85VZv2WegdTCxVGOuNnAjy9WrJLqN0ZYSDmN2sjSESeFcnMDmngxiwSaaOw7_nRXPXFoijGoYmv5fb4a-Xc_ekbnpZarQKDEhgW3eqZQ2DchAwGsflvgH-lrSs3xqG3sZnEoAzBsZBf-7ciWcshRiJ3veIabmwUNE8kJpapjErHvG42y7YPhdfQLElXK-nv9iTtYzZQRrQ6WJAT2sabR3MUTQ",
+      "expiresIn": 1758873495,
+      "tokenType": "Bearer"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

@@ -1,13 +1,12 @@
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
-import dotenv from 'dotenv';
 import Sinon from 'sinon';
-import config from '../../convict/config.js';
+import { config } from '../../convict/config.js';
 import { redisPlugin } from '../../src/plugins/redisPlugin.js';
 
-dotenv.config({ path: '.env.test' });
 const lab = Lab.script();
 const { describe, it, beforeEach, afterEach } = lab;
+
 export { lab };
 
 describe('Plugin :: redisPlugin', () => {

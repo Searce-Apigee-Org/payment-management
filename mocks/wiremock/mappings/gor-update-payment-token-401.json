@@ -1,0 +1,36 @@
+{
+  "priority": 1,
+  "scenarioName": "PaymentTokenIdRetry",
+  "requiredScenarioState": "Started",
+  "newScenarioState": "TokenExpired",
+  "request": {
+    "method": "POST",
+    "urlPath": "/api/update-order-service/order/paymentTokenId",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .*"
+      },
+      "ReferenceId": {
+        "matches": ".*"
+      },
+      "Content-Type": {
+        "contains": "application/json"
+      }
+    },
+    "bodyPatterns": [
+      { "matchesJsonPath": "$.paymentTokenId" },
+      { "matchesJsonPath": "$.paymentStatus" },
+      { "matchesJsonPath": "$.paymentChannel" }
+    ]
+  },
+  "response": {
+    "status": 401,
+    "jsonBody": {
+      "error": "Unauthorized",
+      "message": "Access token expired"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
