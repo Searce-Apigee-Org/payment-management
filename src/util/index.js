@@ -6,11 +6,14 @@ import * as constants from './constants.js';
 import * as csPaymentsUtil from './csPaymentsUtil.js';
 import * as dataDictionaryUtil from './dataDictionaryUtil.js';
 import * as dateTimeUtil from './dateTimeUtil.js';
+import * as errorUtil from './errorUtil.js';
 import * as esimUtil from './esimUtil.js';
+import * as examples from './examples.js';
 import * as getPaymentSessionUtil from './getPaymentSessionUtil.js';
 import * as objectUtil from './objectUtil.js';
 import * as oonaUtil from './oonaUtil.js';
 import * as paymentsUtil from './paymentsUtil.js';
+import * as pubSubUtil from './pubSubUtil.js';
 import * as secretUtil from './secretUtil.js';
 import * as stringUtil from './stringUtil.js';
 import * as swaggerUtil from './swaggerUtil.js';
@@ -28,11 +31,14 @@ export {
   csPaymentsUtil,
   dataDictionaryUtil,
   dateTimeUtil,
+  errorUtil,
   esimUtil,
+  examples,
   getPaymentSessionUtil,
   objectUtil,
   oonaUtil,
   paymentsUtil,
+  pubSubUtil,
   secretUtil,
   stringUtil,
   swaggerUtil,

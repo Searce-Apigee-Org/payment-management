@@ -64,15 +64,15 @@ const retrievePaymentServiceAccessToken = async (req, channelId) => {
         }
       );
 
-      if (newAccessToken?.accessToken) {
-        authorizationToken = newAccessToken.accessToken;
+      logger.info('NEW_ACCESS_TOKEN_REPO_CALL', { newAccessToken });
 
-        logger.info('NEW_ACCESS_TOKEN', { newAccessToken });
+      if (newAccessToken?.results?.accessToken) {
+        authorizationToken = newAccessToken.results.accessToken;
 
         await tokenStore.paymentRepository.updateAccessTokenByChannel(
           req,
           tokenStoreClient,
-          JSON.stringify(newAccessToken.accessToken),
+          JSON.stringify(newAccessToken.results),
           channelId,
           localConstants.SECRET_ENTITY.REFUND
         );
@@ -81,7 +81,7 @@ const retrievePaymentServiceAccessToken = async (req, channelId) => {
       logger.error('CLIENT_ID_NOT_FOUND', { tokenPaymentId, headers });
       throw new Error('Unable to determine clientId for secret manager fetch');
     }
-
+    logger.info('FINAL_AUTHORIZATION_TOKEN', { authorizationToken });
     return authorizationToken;
   } catch (err) {
     logger.debug('FETCH_AUTHORIZATION_TOKEN_ERROR', err);
@@ -90,9 +90,8 @@ const retrievePaymentServiceAccessToken = async (req, channelId) => {
 };
 
 const T1_PAYMENT_TYPE_SET = new Set([
-  localConstants.PAYMENT_TYPES.DROPIN,
-  localConstants.PAYMENT_TYPES.ADYEN,
-  localConstants.PAYMENT_TYPES.CARD,
+  localConstants.PAYMENT_TYPES.GCASH,
+  localConstants.PAYMENT_TYPES.XENDIT,
 ]);
 
 const isT1PaymentType = (paymentType) =>

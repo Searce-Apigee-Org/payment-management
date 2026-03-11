@@ -30,7 +30,7 @@ const processCSPaymentAsync = async (req, payload) => {
     const {
       host,
       httpProtocol,
-      endpoints: { paymentStatusCallback: endpoint },
+      endpoints: { processCSPayment: endpoint },
     } = config.get('cxs.paymentManagement');
 
     const url = `${httpProtocol}://${host}/${endpoint}`;
@@ -57,10 +57,10 @@ const buyLoadAsync = async (req, payload) => {
       endpoints: { buyLoad: rawEndpoint },
     } = config.get('cxs.paymentManagement');
 
-    const endpoint = rawEndpoint.replace(
-      ':customerId',
-      encodeURIComponent(mobileNumber)
-    );
+    // Support both :customerId and {customerId} in configuration
+    const endpoint = rawEndpoint
+      .replace(':customerId', encodeURIComponent(mobileNumber))
+      .replace('{customerId}', encodeURIComponent(mobileNumber));
 
     const url = `${httpProtocol}://${host}/${endpoint}`;
 
@@ -101,6 +101,8 @@ const executeRefund = async (req, refundRequest, authToken) => {
     };
 
     const response = await http.post(url, refundRequest, options, false, false);
+
+    logger.info('CXS_PAYMENT_EXECUTE_REFUND_RESPONSE', response);
 
     return response;
   } catch (err) {

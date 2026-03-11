@@ -1,0 +1,8 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pnm="http://DANATEQ.com/soap/link/pnm/">
+   <soapenv:Header/>
+   <soapenv:Body>
+      <pnm:pushNotificationExt>
+        ${xmlRequest}
+      </pnm:pushNotificationExt>
+   </soapenv:Body>
+</soapenv:Envelope>

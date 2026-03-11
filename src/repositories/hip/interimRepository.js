@@ -11,7 +11,9 @@ const {
   endpoints: { interimEndpoint },
 } = config.get('hip');
 
-const getDetailsByMSISDN = async (getDetailsByMSISDNRequest, req) => {
+// NOTE: this repository is invoked via `downstreamDataProvider`, which calls
+// downstreamApiCall(req, params). Therefore the signature must be (req, payload).
+const getDetailsByMSISDN = async (req, getDetailsByMSISDNRequest) => {
   const { soap } = req;
   const opts = {
     url: `${protocol}://${host}/${interimEndpoint}`,

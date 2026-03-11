@@ -23,11 +23,23 @@ const buyLoadRequest = (transaction, tokenPaymentId, mobileNumber) => {
     mobileNumber,
     keyword: transaction.keyword,
     wallet: transaction.wallet,
-    amount: transaction.amount.toString(),
+    amount: transaction.amount ? transaction.amount.toString() : null,
     tokenPaymentId,
-    agentName: transaction.agentName ?? null,
-    externalTransactionId: transaction.externalTransactionId ?? null,
   };
+
+  // Only include optional string fields when they are non-null/defined
+  if (transaction.agentName !== undefined && transaction.agentName !== null) {
+    buyLoadRequest.agentName = String(transaction.agentName);
+  }
+
+  if (
+    transaction.externalTransactionId !== undefined &&
+    transaction.externalTransactionId !== null
+  ) {
+    buyLoadRequest.externalTransactionId = String(
+      transaction.externalTransactionId
+    );
+  }
 
   return buyLoadRequest;
 };
@@ -37,8 +49,12 @@ const purchasePromoRequest = (t, mobileNumber) => {
     keyword: t.keyword,
     mobileNumber,
     serviceID: t.serviceId,
-    price: t.amount.toString(),
-    param: t.param,
+    price: t.amount ? t.amount.toString() : null,
+    param: t.parameterName
+      ? t.parameterName.toString()
+      : t.param
+        ? t.param.toString()
+        : null,
   };
 
   return request;
@@ -50,9 +66,9 @@ const ecPayRequest = (t) => {
     billerName: t.billerName,
     accountNumber: t.accountNumber,
     accountIdentifier: t.accountIdentifier,
-    amountToPay: t.amountToPay.toString(),
-    serviceCharge: t.serviceCharge.toString(),
-    totalAmount: t.totalAmount.toString(),
+    amountToPay: t.amountToPay ? t.amountToPay.toString() : null,
+    serviceCharge: t.serviceCharge ? t.serviceCharge.toString() : null,
+    totalAmount: t.totalAmount ? t.totalAmount.toString() : null,
   };
 
   return req;
@@ -68,7 +84,11 @@ const buyRoamingRequest = (
   const req = {
     mobileNumber,
     prsId: t.serviceId,
-    denomination: t.param.toString(),
+    denomination: t.parameterName
+      ? t.parameterName.toString()
+      : t.param
+        ? t.param.toString()
+        : null,
     activationDate: t.activationDate,
     targetDestination: t.targetDestination,
     originatingChannel: channelName,

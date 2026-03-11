@@ -18,6 +18,7 @@ describe('Service :: V1 :: refundService', () => {
   let secretManager;
   let secretManagerClient;
   let req;
+  let payment;
 
   const buildBearerTokenWithUuid = (uuid = 'user-uuid-1') => {
     const header = Buffer.from(
@@ -29,10 +30,10 @@ describe('Service :: V1 :: refundService', () => {
   };
 
   beforeEach(() => {
-    mongo = {
-      paymentRepository: {
-        findByPaymentId: Sinon.stub(),
-        savePayment: Sinon.stub(),
+    payment = {
+      customerPaymentsRepository: {
+        findOne: Sinon.stub(),
+        save: Sinon.stub().resolves({}),
       },
     };
     cxs = {
@@ -56,6 +57,7 @@ describe('Service :: V1 :: refundService', () => {
       cxs,
       secretManager,
       secretManagerClient,
+      payment,
     };
 
     Sinon.stub(logger, 'debug');
@@ -106,11 +108,11 @@ describe('Service :: V1 :: refundService', () => {
         userToken: buildBearerTokenWithUuid('uuid-superapp-1'),
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
       cxs.paymentManagementRepository.executeRefund.resolves({
         statusCode: 202,
       });
-      mongo.paymentRepository.savePayment.resolves({});
+      req.payment.customerPaymentsRepository.save.resolves({});
 
       await handleRefundProcess(req, transactionEntity);
 
@@ -119,12 +121,13 @@ describe('Service :: V1 :: refundService', () => {
       expect(args[1]).to.equal({ refundAmount: '20.00' });
       expect(args[2]).to.equal('auth-token');
 
-      Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-      const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+      Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+      const saved =
+        req.payment.customerPaymentsRepository.save.firstCall.args[0];
       expect(saved).to.shallow.equal(paymentEntity);
-      expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
-        'uuid-superapp-1'
-      );
+      expect(
+        req.payment.customerPaymentsRepository.save.firstCall.args[1]
+      ).to.equal('uuid-superapp-1');
       expect(typeof saved.lastUpdatedDate).to.equal('string');
     });
 
@@ -139,11 +142,11 @@ describe('Service :: V1 :: refundService', () => {
         userToken: buildBearerTokenWithUuid('uuid-superapp-2'),
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
       cxs.paymentManagementRepository.executeRefund.resolves({
         statusCode: 202,
       });
-      mongo.paymentRepository.savePayment.resolves({});
+      req.payment.customerPaymentsRepository.save.resolves({});
 
       await handleRefundProcess(req, transactionEntity);
 
@@ -152,11 +155,12 @@ describe('Service :: V1 :: refundService', () => {
       expect(args[1]).to.equal({ refundAmount: '18' });
       expect(args[2]).to.equal('auth-token');
 
-      Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-      expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
-        'uuid-superapp-2'
-      );
-      const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+      Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+      expect(
+        req.payment.customerPaymentsRepository.save.firstCall.args[1]
+      ).to.equal('uuid-superapp-2');
+      const saved =
+        req.payment.customerPaymentsRepository.save.firstCall.args[0];
       expect(typeof saved.lastUpdatedDate).to.equal('string');
     });
 
@@ -191,7 +195,7 @@ describe('Service :: V1 :: refundService', () => {
       req.payload.tokenPaymentId = 'GLABUG1';
       const transactionEntity = { amount: 5 };
 
-      mongo.paymentRepository.findByPaymentId.resolves({
+      req.payment.customerPaymentsRepository.findOne.resolves({
         settlementDetails: [{ amount: '10.00' }],
         paymentType: 'XENDIT',
       });
@@ -222,8 +226,8 @@ describe('Service :: V1 :: refundService', () => {
         userToken: buildBearerTokenWithUuid('uuid-upd-1'),
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
-      mongo.paymentRepository.savePayment.resolves({});
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.save.resolves({});
 
       const refundResponse = { statusCode: 202 };
       const refundRequest = { refundAmount: '12.50' };
@@ -235,11 +239,12 @@ describe('Service :: V1 :: refundService', () => {
         refundRequest
       );
 
-      Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-      expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
-        'uuid-upd-1'
-      );
-      const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+      Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+      expect(
+        req.payment.customerPaymentsRepository.save.firstCall.args[1]
+      ).to.equal('uuid-upd-1');
+      const saved =
+        req.payment.customerPaymentsRepository.save.firstCall.args[0];
       expect(saved).to.shallow.equal(paymentEntity);
       expect(typeof saved.lastUpdatedDate).to.equal('string');
     });
@@ -255,8 +260,8 @@ describe('Service :: V1 :: refundService', () => {
         userToken: buildBearerTokenWithUuid('uuid-upd-2'),
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
-      mongo.paymentRepository.savePayment.resolves({});
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.save.resolves({});
 
       const refundResponse = { statusCode: 202 };
       const refundRequest = '7.25';
@@ -268,11 +273,12 @@ describe('Service :: V1 :: refundService', () => {
         refundRequest
       );
 
-      Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-      expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
-        'uuid-upd-2'
-      );
-      const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+      Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+      expect(
+        req.payment.customerPaymentsRepository.save.firstCall.args[1]
+      ).to.equal('uuid-upd-2');
+      const saved =
+        req.payment.customerPaymentsRepository.save.firstCall.args[0];
       expect(typeof saved.lastUpdatedDate).to.equal('string');
     });
 
@@ -287,8 +293,8 @@ describe('Service :: V1 :: refundService', () => {
         userToken: buildBearerTokenWithUuid('uuid-upd-3'),
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
-      mongo.paymentRepository.savePayment.resolves({});
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.save.resolves({});
 
       const refundResponse = { statusCode: 200 };
       const refundRequest = { refundAmount: '7' };
@@ -300,11 +306,12 @@ describe('Service :: V1 :: refundService', () => {
         refundRequest
       );
 
-      Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-      expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
-        'uuid-upd-3'
-      );
-      const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+      Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+      expect(
+        req.payment.customerPaymentsRepository.save.firstCall.args[1]
+      ).to.equal('uuid-upd-3');
+      const saved =
+        req.payment.customerPaymentsRepository.save.firstCall.args[0];
       expect(typeof saved.lastUpdatedDate).to.equal('string');
     });
 
@@ -319,8 +326,8 @@ describe('Service :: V1 :: refundService', () => {
         userToken: buildBearerTokenWithUuid('uuid-upd-4'),
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
-      mongo.paymentRepository.savePayment.resolves({});
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.save.resolves({});
 
       const refundResponse = { statusCode: 500 };
       const refundRequest = '9.90';
@@ -332,11 +339,12 @@ describe('Service :: V1 :: refundService', () => {
         refundRequest
       );
 
-      Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-      expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
-        'uuid-upd-4'
-      );
-      const saved2 = mongo.paymentRepository.savePayment.firstCall.args[0];
+      Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+      expect(
+        req.payment.customerPaymentsRepository.save.firstCall.args[1]
+      ).to.equal('uuid-upd-4');
+      const saved2 =
+        req.payment.customerPaymentsRepository.save.firstCall.args[0];
       expect(typeof saved2.lastUpdatedDate).to.equal('string');
     });
 
@@ -350,7 +358,7 @@ describe('Service :: V1 :: refundService', () => {
         settlementDetails: [{}],
       };
 
-      mongo.paymentRepository.findByPaymentId.resolves(paymentEntity);
+      req.payment.customerPaymentsRepository.findOne.resolves(paymentEntity);
       const refundResponse = { statusCode: 202 };
       const refundRequest = { refundAmount: '5' };
 
@@ -361,7 +369,7 @@ describe('Service :: V1 :: refundService', () => {
         refundRequest
       );
 
-      Sinon.assert.notCalled(mongo.paymentRepository.savePayment);
+      Sinon.assert.notCalled(req.payment.customerPaymentsRepository.save);
     });
 
     it('rethrows when findByPaymentId rejects (covers catch)', async () => {
@@ -369,7 +377,9 @@ describe('Service :: V1 :: refundService', () => {
       req.payload.tokenPaymentId = tokenPaymentId;
       const transactionEntity = { amount: 1 };
 
-      mongo.paymentRepository.findByPaymentId.rejects(new Error('db-fail'));
+      req.payment.customerPaymentsRepository.findOne.rejects(
+        new Error('db-fail')
+      );
       const refundResponse = { statusCode: 200 };
       const refundRequest = { refundAmount: '1' };
 
@@ -383,7 +393,7 @@ describe('Service :: V1 :: refundService', () => {
         throw new Error('Expected failure but succeeded');
       } catch (err) {
         expect(err).to.be.an.error();
-        Sinon.assert.notCalled(mongo.paymentRepository.savePayment);
+        Sinon.assert.notCalled(req.payment.customerPaymentsRepository.save);
         Sinon.assert.calledWithMatch(
           logger.debug,
           'REFUND_SERVICE_UPDATE_PAYMENT_WITH_REFUND_STATUS_ERROR'

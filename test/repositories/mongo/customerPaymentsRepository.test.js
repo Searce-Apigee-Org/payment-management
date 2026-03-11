@@ -5,6 +5,7 @@ import sinon from 'sinon';
 import { CustomerPaymentModel } from '../../../src/models/mongo/index.js';
 import {
   create,
+  find,
   findOne,
   put,
   update,
@@ -270,5 +271,50 @@ describe('Repository :: Mongo :: CustomerPayment Repository :: update', () => {
     expect(tag).to.equal('UPDATE_CUSTOMER_PAYMENT_ERROR');
     expect(errorArg).to.be.instanceOf(Error);
     expect(errorArg.message).to.equal('DB update error');
+  });
+});
+
+describe('Repository :: Mongo :: CustomerPayment Repository :: find', () => {
+  let findOneStub;
+
+  beforeEach(() => {
+    findOneStub = sinon.stub(CustomerPaymentModel, 'findOne');
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should throw error when tokenPaymentId is missing', async () => {
+    await expect(find({})).to.reject(
+      Error,
+      'Missing required field: tokenPaymentId'
+    );
+    expect(findOneStub.called).to.be.false();
+  });
+
+  it('should return Item when record exists', async () => {
+    const payment = { tokenPaymentId: 'tok-1', amount: 50 };
+    findOneStub.returns({ lean: sinon.stub().resolves(payment) });
+
+    const result = await find({ tokenPaymentId: 'tok-1' });
+
+    expect(result).to.equal({ Item: payment });
+  });
+
+  it('should log and rethrow when db call fails', async () => {
+    const debugStub = sinon.stub(logger, 'debug');
+    const err = new Error('DB error');
+    findOneStub.returns({ lean: sinon.stub().rejects(err) });
+
+    await expect(find({ tokenPaymentId: 'tok-2' })).to.reject(
+      Error,
+      'DB error'
+    );
+
+    expect(debugStub.calledOnce).to.be.true();
+    const [tag, errorArg] = debugStub.getCall(0).args;
+    expect(tag).to.equal('FIND_CUSTOMER_PAYMENT_ERROR');
+    expect(errorArg.message).to.equal('DB error');
   });
 });

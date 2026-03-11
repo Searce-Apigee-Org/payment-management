@@ -20,6 +20,30 @@ const buildReq = ({ payload, appCxsOverrides = {} } = {}) => {
   const notificationPayload =
     payload?.notification?.payload || payload?.payload?.notification?.payload;
 
+  // In runtime, helpers are attached via globalDependenciesPlugin as
+  // `req.serviceHelpers`. Tests originally used `req.helpers`. To keep
+  // service code using the real wiring while not breaking older tests,
+  // expose helpers under both shapes here.
+  const helpers = {
+    paymentSessionCallback: {
+      setPaymentStatus: sinon.stub().resolves(),
+      triggerGlobeCallback: sinon.stub().resolves(),
+      sendPaymentNotificationEmail: sinon.stub().resolves(),
+      resolveDropinStatus: sinon.stub().resolves(false),
+
+      processCSPayment: sinon.stub(),
+      processBuyLoad: sinon.stub(),
+      processPurchasePromo: sinon.stub(),
+      processBuyVoucher: sinon.stub(),
+      processVolumeBoost: sinon.stub(),
+      processECPay: sinon.stub(),
+      processPrepaidFiberServiceOrders: sinon.stub(),
+      processPrepaidFiberRepairOrders: sinon.stub(),
+      processCreatePolicy: sinon.stub(),
+      processBuyRoaming: sinon.stub(),
+    },
+  };
+
   return {
     payload: {
       notification: {
@@ -60,30 +84,10 @@ const buildReq = ({ payload, appCxsOverrides = {} } = {}) => {
       },
     },
 
-    // processCallbackService: {
-    //   handleErrorPayload: sinon.stub(),
-    //   handlePaymentStatusCallback: sinon.stub(),
-    // },
-
-    helpers: {
-      paymentSessionCallback: {
-        setPaymentStatus: sinon.stub().resolves(),
-        tiggerGlobeCallback: sinon.stub().resolves(),
-        sendPaymentNotificationEmail: sinon.stub().resolves(),
-        resolveDropinStatus: sinon.stub().resolves(false),
-
-        processCSPayment: sinon.stub(),
-        processBuyLoad: sinon.stub(),
-        processPurchasePromo: sinon.stub(),
-        processBuyVoucher: sinon.stub(),
-        processVolumeBoost: sinon.stub(),
-        processECPay: sinon.stub(),
-        processPrepaidFiberServiceOrders: sinon.stub(),
-        processPrepaidFiberRepairOrders: sinon.stub(),
-        processCreatePolicy: sinon.stub(),
-        processBuyRoaming: sinon.stub(),
-      },
-    },
+    // Expose helpers in both places to satisfy existing tests and
+    // the runtime wiring via globalDependenciesPlugin.
+    serviceHelpers: helpers,
+    helpers,
   };
 };
 
@@ -509,7 +513,8 @@ describe('Services :: v1 :: processCallbackService :: handlePaymentStatusCallbac
     delete notification.payload.notification.payload.accounts;
 
     const paymentDetails = buildMockPaymentEntity('BuyLoad', {
-      paymentType: 'CC/DC',
+      // Align with current constants.PAYMENT_TYPES.CARD
+      paymentType: 'CARD',
     });
 
     const req = buildReq({

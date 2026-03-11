@@ -28,13 +28,14 @@ const PAYMENT_TYPES = {
   PAYMAYA: 'PAYMAYA',
   SHOPEEPAY: 'SHOPEEPAY',
   GRABPAY: 'GRABPAY',
-  CARD: 'CC/DC',
+  CARD: 'CARD',
 };
 
 const PAYMENT_REQUEST_TYPES = {
   BUY_LOAD: 'BuyLoad',
   BUY_PROMO: 'BuyPromo',
   BUY_VOUCHER: 'BuyVoucher',
+  BUYBBCONTENT: 'BuyBBContent',
   VOLUME_BOOST: 'VolumeBoost',
   ECPAY: 'ECPay',
   PAY_BILLS: 'PayBills',
@@ -61,7 +62,7 @@ const PAYMENT_ENTITY_TYPES = {
 };
 
 const TOKEN_ENTITY = {
-  PAYMENT_SERIVCE_AUTH_TOKEN: 'paymentService-token',
+  PAYMENT_SERVICE_AUTH_TOKEN: 'paymentService-token',
 };
 
 const SECRET_ENTITY = {
@@ -82,6 +83,9 @@ const SECRET_ENTITY = {
   REFUND_AUTH_TOKEN: 'refund-auth-token',
   GPAYO: 'gpayo-credentials',
   REFUND: 'refund',
+  SINGLIFE_PRICING: 'singlife-pricing',
+  GCP: 'gcp',
+  PAYMENT_AUTO_REFUND: 'auto-refund-config',
 };
 
 const PAYMENT_SESSIONS = {
@@ -300,8 +304,6 @@ const WEBPAYMENT_CONSTANTS = {
   PERCENTAGE_RATE_TYPE: 'percentage',
   DEFAULT_PAYMENT_SESSION_VERSION: 'v2',
   GPAYO_CREDENTIALS_KEY: 'gpayo-credentials',
-  OONA_CONFIG_KEY: 'oona-pricing-config',
-  BUDGET_PROTECT_CONFIG_KEY: 'singlife-pricing-config',
   OONA_COMP_TRAVEL_KEY: 'oonacomptravel',
   OONA_SMART_DELAY_KEY: 'oonasmartdelay',
 };
@@ -394,6 +396,39 @@ const CONFIG = {
 
 const APIS = 'apis';
 
+const CALLBACK_INTENT = {
+  PAYMENT_UPDATE: 'payment_update',
+};
+
+const CALLBACK_SOURCE = {
+  CXS: 'cxs',
+};
+
+const CALLBACK_CHANNEL_IDENTIFIER = {
+  GLOBE_ONLINE: 'Globe Online',
+};
+
+const CALLBACK_APPLICATION_IDENTIFIER = {
+  CXS: 'cxs',
+};
+
+const GCP_ERROR_CODES = {
+  INVALID_ACCESS_TOKEN: '40102',
+};
+
+const INVOCATION_TYPE = {
+  REQUEST_RESPONSE: 'RequestResponse',
+  EVENT: 'Event',
+};
+
+const HTTP_METHOD = {
+  POST: 'POST',
+};
+
+const EVENT_NAME = {
+  GET_PAYMENT_SESSION_BY_TOKEN_PAYMENT_ID: 'GetPaymentSessionByTokenPaymentId',
+};
+
 export {
   ACCESS_TOKEN,
   ACTIONS,
@@ -402,6 +437,10 @@ export {
   API_VERSIONS,
   AUTHORISED,
   CACHE_STATUS,
+  CALLBACK_APPLICATION_IDENTIFIER,
+  CALLBACK_CHANNEL_IDENTIFIER,
+  CALLBACK_INTENT,
+  CALLBACK_SOURCE,
   CANCELLED,
   CHANNEL,
   CHANNELS,
@@ -415,11 +454,15 @@ export {
   EPISODES,
   ESIM_CONSTANTS,
   ESIM_REQUEST_TYPES,
+  EVENT_NAME,
   FAILED,
   FORBIDDEN_KEYS,
   FORMAT,
+  GCP_ERROR_CODES,
+  HTTP_METHOD,
   HTTP_STATUS,
   HTTP_STATUS_CODES,
+  INVOCATION_TYPE,
   PAYMENT_BANKS,
   PAYMENT_ENTITY_TYPES,
   PAYMENT_METHOD_SUFFIX,

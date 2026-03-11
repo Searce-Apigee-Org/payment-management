@@ -65,17 +65,32 @@ describe('Service :: Common :: OonaService :: applyOonaPricing', () => {
     expect(
       mockReq.secretManager.oonaRepository.getPricing.calledOnce
     ).to.be.true();
+    expect(
+      mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        mockReq.secret
+      )
+    ).to.be.true();
   });
 
   it('should apply OONA_COMP_TRAVEL pricing for non-GHP brand', async () => {
     mockReq.cxsRequest.settlementInformation[0].metadata.brand = 'Globe';
     const result = await applyOonaPricing(mockReq, ['oonacomptravel-123']);
     expect(result).to.equal({ oonaCompTravel: 100 });
+    expect(
+      mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        mockReq.secret
+      )
+    ).to.be.true();
   });
 
   it('should apply OONA_SMART_DELAY pricing for single member', async () => {
     const result = await applyOonaPricing(mockReq, ['oonasmartdelay']);
     expect(result).to.equal({ oonaSmartDelay: 50 });
+    expect(
+      mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        mockReq.secret
+      )
+    ).to.be.true();
   });
 
   it('should apply OONA_SMART_DELAY pricing for multiple members', async () => {
@@ -86,6 +101,11 @@ describe('Service :: Common :: OonaService :: applyOonaPricing', () => {
 
     const result = await applyOonaPricing(mockReq, ['oonasmartdelay']);
     expect(result).to.equal({ oonaSmartDelay: 70 }); // 50 + (1 * 20)
+    expect(
+      mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        mockReq.secret
+      )
+    ).to.be.true();
   });
 
   it('should throw CustomBadRequestMessage if invalid Oona SKU is passed', async () => {
@@ -94,7 +114,7 @@ describe('Service :: Common :: OonaService :: applyOonaPricing', () => {
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.type).to.equal('CustomBadRequestMessage');
-      expect(err.message).to.include('Invalid Oona SKU');
+      expect(err.message).to.include('Invalid Oona SKU(s) found.');
     }
   });
 
@@ -109,6 +129,11 @@ describe('Service :: Common :: OonaService :: applyOonaPricing', () => {
     } catch (err) {
       expect(err.type).to.equal('MissingParameterValidateException');
       expect(err.message).to.include('Oona pricing for service id not found');
+      expect(
+        mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+          mockReq.secret
+        )
+      ).to.be.true();
     }
   });
 
@@ -122,7 +147,12 @@ describe('Service :: Common :: OonaService :: applyOonaPricing', () => {
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.type).to.equal('MissingParameterValidateException');
-      expect(err.message).to.include('Smart Delay not found');
+      expect(err.message).to.include('Oona pricing for Smart Delay not found');
+      expect(
+        mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+          mockReq.secret
+        )
+      ).to.be.true();
     }
   });
 
@@ -136,6 +166,11 @@ describe('Service :: Common :: OonaService :: applyOonaPricing', () => {
       oonaCompTravel: 150,
       oonaSmartDelay: 50,
     });
+    expect(
+      mockReq.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        mockReq.secret
+      )
+    ).to.be.true();
   });
 });
 
@@ -159,7 +194,7 @@ describe('Service :: Common :: OonaService :: applyOonaPricingForV2', () => {
     reqMock = {
       secretManager: {
         oonaRepository: {
-          getPricing: sinon.stub().resolves(JSON.stringify(mockPricing)),
+          getPricing: sinon.stub().resolves(mockPricing),
         },
       },
       payload: {
@@ -203,6 +238,11 @@ describe('Service :: Common :: OonaService :: applyOonaPricingForV2', () => {
     expect(
       reqMock.secretManager.oonaRepository.getPricing.calledOnce
     ).to.be.true();
+    expect(
+      reqMock.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        reqMock.secret
+      )
+    ).to.be.true();
   });
 
   it('should apply OONA_COMP_TRAVEL pricing for non-GHP brand', async () => {
@@ -217,6 +257,11 @@ describe('Service :: Common :: OonaService :: applyOonaPricingForV2', () => {
     expect(totalAmount).to.equal(100);
     expect(
       reqMock.secretManager.oonaRepository.getPricing.calledOnce
+    ).to.be.true();
+    expect(
+      reqMock.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        reqMock.secret
+      )
     ).to.be.true();
   });
 
@@ -233,6 +278,11 @@ describe('Service :: Common :: OonaService :: applyOonaPricingForV2', () => {
     expect(
       reqMock.secretManager.oonaRepository.getPricing.calledOnce
     ).to.be.true();
+    expect(
+      reqMock.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        reqMock.secret
+      )
+    ).to.be.true();
   });
 
   it('should apply OONA_SMART_DELAY pricing for multiple members', async () => {
@@ -247,20 +297,15 @@ describe('Service :: Common :: OonaService :: applyOonaPricingForV2', () => {
         lastName: 'Doe',
       }
     );
-
-    console.log(
-      'TEST MULTIPLE MEMBERS REQ MOCK',
-      JSON.stringify(
-        reqMock.payload.settlementInfo.breakdown[0].transactions[0]
-          .transactionProfile
-      )
-    );
-
     const result = await applyOonaPricingForV2(reqMock);
-    console.log('FINAL RESULT', JSON.stringify(result));
     const totalAmount = result.settlementInfo.breakdown[0].amount;
 
     expect(totalAmount).to.equal(70); // 50 + (1 * 20)
+    expect(
+      reqMock.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        reqMock.secret
+      )
+    ).to.be.true();
   });
 
   it('should throw OperationFailed when Oona SKU is not in ALLOWED_OONA_SKUS', async () => {
@@ -296,12 +341,13 @@ describe('Service :: Common :: OonaService :: applyOonaPricingForV2', () => {
       'OonaSmartDelay'
     );
     const result = await applyOonaPricingForV2(reqMock);
-    console.log(
-      'OONA_COMP_TRAVEL and OONA_SMART_DELAY in one request FINAL RESULT',
-      JSON.stringify(result)
-    );
     const totalAmount = result.settlementInfo.breakdown[0].amount;
 
     expect(totalAmount).to.equal(200); // 150 + 50
+    expect(
+      reqMock.secretManager.oonaRepository.getPricing.calledOnceWithExactly(
+        reqMock.secret
+      )
+    ).to.be.true();
   });
 });

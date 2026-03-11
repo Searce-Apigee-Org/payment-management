@@ -21,9 +21,11 @@ let req;
 beforeEach(() => {
   req = {
     payload: { tokenPaymentId: 'abc-12345' },
-    mongo: {
+    payment: {
       customerPaymentsRepository: {
         update: Sinon.stub(),
+        updateOne: Sinon.stub(),
+        findOne: Sinon.stub(),
       },
     },
     gor: {
@@ -52,32 +54,85 @@ afterEach(() => {
 });
 
 describe('Services :: V1 :: CsPaymentsSettlement :: updateSettlementDetails', () => {
-  it('should update settlement details with correct keys', async () => {
-    req.mongo.customerPaymentsRepository.update.resolves();
+  it('should fetch existing payment and update settlement details', async () => {
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [{ existing: 'data' }],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
+
     const settlementDetail = { foo: 'bar' };
     const index = 0;
 
     await updateSettlementDetails(req, settlementDetail, index);
 
-    expect(req.mongo.customerPaymentsRepository.update.calledOnce).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.findOne.calledOnce
+    ).to.be.true();
+    const [tokenPaymentIdArg, reqArg] =
+      req.payment.customerPaymentsRepository.findOne.getCall(0).args;
+    expect(tokenPaymentIdArg).to.equal('abc-12345');
+    expect(reqArg).to.equal(req);
 
-    const expectedKeys = {
-      filter: { tokenPaymentId: req.payload.tokenPaymentId },
-      update: {
-        $set: {
-          [`settlementDetails.${index}`]: settlementDetail,
-        },
-      },
-    };
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.calledOnce
+    ).to.be.true();
+    const [updatedPaymentArg, updateReqArg] =
+      req.payment.customerPaymentsRepository.updateOne.getCall(0).args;
 
-    const [keysArg] =
-      req.mongo.customerPaymentsRepository.update.getCall(0).args;
-    expect(keysArg).to.equal(expectedKeys);
+    expect(updatedPaymentArg.tokenPaymentId).to.equal('abc-12345');
+    expect(updatedPaymentArg.settlementDetails[index]).to.equal(
+      settlementDetail
+    );
+    expect(updateReqArg).to.equal(req);
   });
 
-  it('should log and rethrow on repo error', async () => {
+  it('should initialize settlementDetails array if it does not exist', async () => {
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      // no settlementDetails
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
+
+    const settlementDetail = { foo: 'bar' };
+    const index = 1;
+
+    await updateSettlementDetails(req, settlementDetail, index);
+
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.calledOnce
+    ).to.be.true();
+    const [updatedPaymentArg] =
+      req.payment.customerPaymentsRepository.updateOne.getCall(0).args;
+
+    expect(updatedPaymentArg.settlementDetails).to.be.an.array();
+    expect(updatedPaymentArg.settlementDetails[index]).to.equal(
+      settlementDetail
+    );
+  });
+
+  it('should throw error when payment is not found', async () => {
+    req.payment.customerPaymentsRepository.findOne.resolves(null);
+
+    try {
+      await updateSettlementDetails(req, { a: 1 }, 1);
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.equal('Payment not found: abc-12345');
+      expect(
+        req.payment.customerPaymentsRepository.updateOne.called
+      ).to.be.false();
+    }
+  });
+
+  it('should log and rethrow on findOne error', async () => {
     const debugStub = Sinon.stub(logger, 'debug');
-    req.mongo.customerPaymentsRepository.update.rejects(new Error('db error'));
+    req.payment.customerPaymentsRepository.findOne.rejects(
+      new Error('db error')
+    );
 
     try {
       await updateSettlementDetails(req, { a: 1 }, 1);
@@ -92,11 +147,46 @@ describe('Services :: V1 :: CsPaymentsSettlement :: updateSettlementDetails', ()
       expect(errorArg).to.be.instanceOf(Error);
     }
   });
+
+  it('should log and rethrow on updateOne error', async () => {
+    const debugStub = Sinon.stub(logger, 'debug');
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.rejects(
+      new Error('update error')
+    );
+
+    try {
+      await updateSettlementDetails(req, { a: 1 }, 1);
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.equal('update error');
+
+      expect(debugStub.calledOnce).to.be.true();
+      const [tag, errorArg] = debugStub.getCall(0).args;
+      expect(tag).to.equal('UPDATE_SETTLEMENT_DETAILS_ERROR');
+      expect(errorArg).to.be.instanceOf(Error);
+    }
+  });
 });
 
 describe('Services :: V1 :: CsPaymentsSettlement :: markProvisionStatus', () => {
-  it('should set provisionStatus and call update', async () => {
-    req.mongo.customerPaymentsRepository.update.resolves();
+  it('should set provisionStatus and call updateOne', async () => {
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [
+        { transactions: [{ provisionStatus: 'OLD' }] },
+        { transactions: [{ provisionStatus: 'OLD' }] },
+        { transactions: [{ provisionStatus: 'PENDING' }] },
+      ],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
+
     const detail = { transactions: [{ provisionStatus: 'PENDING' }] };
 
     await markProvisionStatus(req, detail, 2, constants.STATUS.SUCCESS);
@@ -104,19 +194,30 @@ describe('Services :: V1 :: CsPaymentsSettlement :: markProvisionStatus', () => 
     expect(detail.transactions[0].provisionStatus).to.equal(
       constants.STATUS.SUCCESS
     );
-    expect(req.mongo.customerPaymentsRepository.update.calledOnce).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.findOne.calledOnce
+    ).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.calledOnce
+    ).to.be.true();
 
-    const [keysArg] =
-      req.mongo.customerPaymentsRepository.update.getCall(0).args;
-    expect(keysArg.filter).to.equal({
-      tokenPaymentId: req.payload.tokenPaymentId,
-    });
-    expect(keysArg.update.$set['settlementDetails.2']).to.equal(detail);
+    const [updatedPaymentArg] =
+      req.payment.customerPaymentsRepository.updateOne.getCall(0).args;
+    expect(updatedPaymentArg.tokenPaymentId).to.equal('abc-12345');
+    expect(updatedPaymentArg.settlementDetails[2]).to.equal(detail);
   });
 
   it('should log and rethrow on update error', async () => {
     const debugStub = Sinon.stub(logger, 'debug');
-    req.mongo.customerPaymentsRepository.update.rejects(new Error('mark err'));
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [{ transactions: [{}] }],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.rejects(
+      new Error('mark err')
+    );
+
     const detail = { transactions: [{}] };
 
     try {
@@ -209,11 +310,23 @@ describe('Services :: V1 :: CsPaymentsSettlement :: processSettlementDetail', ()
     );
 
     expect(res).to.be.false();
-    expect(req.mongo.customerPaymentsRepository.update.called).to.be.false();
+    expect(req.payment.customerPaymentsRepository.findOne.called).to.be.false();
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.called
+    ).to.be.false();
     expect(req.gor.gorRepository.updatePaymentTokenId.called).to.be.false();
   });
 
   it('should skip if provisionStatus is FAILED', async () => {
+    // Add this stub even though we expect it to skip
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [
+        { transactions: [{ provisionStatus: constants.STATUS.FAILED }] },
+      ],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+
     const detail = {
       requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
       transactions: [{ provisionStatus: constants.STATUS.FAILED }],
@@ -233,7 +346,15 @@ describe('Services :: V1 :: CsPaymentsSettlement :: processSettlementDetail', ()
   });
 
   it('should mark SUCCESS when gor update returns 204', async () => {
-    req.mongo.customerPaymentsRepository.update.resolves();
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [
+        { transactions: [{ provisionStatus: 'OLD' }] },
+        { transactions: [{ provisionStatus: 'PENDING' }] },
+      ],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
 
     const detail = {
       requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
@@ -257,15 +378,26 @@ describe('Services :: V1 :: CsPaymentsSettlement :: processSettlementDetail', ()
     expect(detail.transactions[0].provisionStatus).to.equal(
       constants.STATUS.SUCCESS
     );
-    expect(req.mongo.customerPaymentsRepository.update.calledOnce).to.be.true();
-    const [keysArg] =
-      req.mongo.customerPaymentsRepository.update.getCall(0).args;
-    expect(keysArg.filter).to.equal({ tokenPaymentId: 'abc-12345' });
-    expect(keysArg.update.$set['settlementDetails.1']).to.equal(detail);
+    expect(
+      req.payment.customerPaymentsRepository.findOne.calledOnce
+    ).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.calledOnce
+    ).to.be.true();
+
+    const [updatedPaymentArg] =
+      req.payment.customerPaymentsRepository.updateOne.getCall(0).args;
+    expect(updatedPaymentArg.tokenPaymentId).to.equal('abc-12345');
+    expect(updatedPaymentArg.settlementDetails[1]).to.equal(detail);
   });
 
   it('should mark FAILED when all retries do not return 204', async () => {
-    req.mongo.customerPaymentsRepository.update.resolves();
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [{ transactions: [{ provisionStatus: 'PENDING' }] }],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
 
     const detail = {
       requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
@@ -287,24 +419,57 @@ describe('Services :: V1 :: CsPaymentsSettlement :: processSettlementDetail', ()
     expect(detail.transactions[0].provisionStatus).to.equal(
       constants.STATUS.FAILED
     );
-    expect(req.mongo.customerPaymentsRepository.update.calledOnce).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.findOne.calledOnce
+    ).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.calledOnce
+    ).to.be.true();
+  });
+
+  it('should skip if requestType is not ChangeSim', async () => {
+    const detail = {
+      requestType: constants.PAYMENT_REQUEST_TYPES.BUYESIM,
+      transactions: [{ provisionStatus: 'PENDING' }],
+    };
+
+    const res = await processSettlementDetail(
+      req,
+      detail,
+      0,
+      'abc-12345',
+      'Bearer x',
+      { authorization: 'Bearer cred' }
+    );
+
+    expect(res).to.be.false();
+    expect(req.payment.customerPaymentsRepository.findOne.called).to.be.false();
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.called
+    ).to.be.false();
+    expect(req.gor.gorRepository.updatePaymentTokenId.called).to.be.false();
   });
 });
 
 describe('Services :: V1 :: CsPaymentsSettlement :: processAllSettlements', () => {
   it('should iterate through settlementDetails and process successfully', async () => {
-    req.mongo.customerPaymentsRepository.update.resolves();
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [
+        {
+          requestType: constants.PAYMENT_REQUEST_TYPES.BUYESIM,
+          transactions: [{ provisionStatus: 'PENDING' }],
+        },
+        {
+          requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
+          transactions: [{ provisionStatus: 'PENDING' }],
+        },
+      ],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
 
-    const settlements = [
-      {
-        requestType: constants.PAYMENT_REQUEST_TYPES.BUYESIM,
-        transactions: [{ provisionStatus: 'PENDING' }],
-      },
-      {
-        requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
-        transactions: [{ provisionStatus: 'PENDING' }],
-      },
-    ];
+    const settlements = existingPayment.settlementDetails;
 
     req.gor.gorRepository.updatePaymentTokenId.resolves({
       statusCode: constants.HTTP_STATUS.NO_CONTENT,
@@ -318,7 +483,12 @@ describe('Services :: V1 :: CsPaymentsSettlement :: processAllSettlements', () =
       accessTokenCredentials: { authorization: 'Bearer cred' },
     });
 
-    expect(req.mongo.customerPaymentsRepository.update.calledOnce).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.findOne.calledOnce
+    ).to.be.true();
+    expect(
+      req.payment.customerPaymentsRepository.updateOne.calledOnce
+    ).to.be.true();
     expect(settlements[1].transactions[0].provisionStatus).to.equal(
       constants.STATUS.SUCCESS
     );
@@ -327,14 +497,20 @@ describe('Services :: V1 :: CsPaymentsSettlement :: processAllSettlements', () =
   it('should mark FAILED and throw InternalOperationFailed on processing failure', async () => {
     const debugStub = Sinon.stub(logger, 'debug');
     req.gor.gorRepository.updatePaymentTokenId.rejects({ status: 500 });
-    req.mongo.customerPaymentsRepository.update.resolves();
 
-    const settlements = [
-      {
-        requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
-        transactions: [{ provisionStatus: 'PENDING' }],
-      },
-    ];
+    const existingPayment = {
+      tokenPaymentId: 'abc-12345',
+      settlementDetails: [
+        {
+          requestType: constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
+          transactions: [{ provisionStatus: 'PENDING' }],
+        },
+      ],
+    };
+    req.payment.customerPaymentsRepository.findOne.resolves(existingPayment);
+    req.payment.customerPaymentsRepository.updateOne.resolves();
+
+    const settlements = existingPayment.settlementDetails;
 
     const markStub = (req.csPaymentsSettlementService.markProvisionStatus =
       Sinon.stub().resolves());

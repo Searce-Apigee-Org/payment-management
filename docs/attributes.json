@@ -108,6 +108,24 @@
         "description": "Creates a web payment session in GPayO T2",
         "status": "LIVE",
         "sequenceFilePath": "docs/sequence/createWebPaymentSession-v2.mmd"
+      },
+      {
+        "displayName": "PaymentStatusCallback",
+        "identifier": "payment-status-callback-v1",
+        "path": "/v1/paymentManagement/internal/paymentStatusCallback",
+        "method": "POST",
+        "description": "This API is for receiving updates on the customer’s payment status details from CXS to Magento/GCP.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/paymentStatusCallback-v1.mmd"
+      },
+      {
+        "displayName": "PaymentAutoRefund-V1",
+        "identifier": "payment-auto-refund-v1",
+        "path": "/v1/paymentManagement/internal/payment-auto-refund",
+        "method": "POST",
+        "description": "This API handles auto refund for eligible transactions.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/paymentAutoRefund-v1.mmd"
       }
     ]
   }

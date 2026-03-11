@@ -1,6 +1,5 @@
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
-import { constants } from '../../../src/util/index.js';
 import {
   generateXenditBasePaymentInfo,
   generateXenditDnoRequest,
@@ -71,9 +70,25 @@ describe('Util :: Transformers :: XenditTransformer :: generateXenditRequest', (
     expect(result.oonaSkus).to.include('sku1');
   });
 
+  it('should NOT attach directDebit/eWallet objects for CC_DC', () => {
+    const request = {
+      type: 'CC_DC',
+      productName: 'SA-LOAD',
+      paymentMethodId: '698c47ece2da88a22a2fd96c',
+      reusability: 'ONE_TIME_USE',
+    };
+
+    const result = generateXenditRequest(request);
+
+    expect(result.type).to.equal('CC_DC');
+    expect(result.paymentMethodId).to.equal('698c47ece2da88a22a2fd96c');
+    expect(result).to.not.include(['directDebit']);
+    expect(result).to.not.include(['eWallet']);
+  });
+
   it('should default all optional values correctly', () => {
     const result = generateXenditRequest({});
-    expect(result.eWallet.cancelUrl).to.be.null();
+    expect(result.eWallet.cancelUrl).to.be.undefined();
     expect(result.directDebit.failureUrl).to.be.null();
     expect(result.type).to.be.null();
     expect(result.oonaSkus).to.be.an.array();
@@ -82,7 +97,7 @@ describe('Util :: Transformers :: XenditTransformer :: generateXenditRequest', (
 
 describe('Util :: Transformers :: XenditTransformer :: generateXenditBasePaymentInfo', () => {
   it('should generate correct base payment info for Xendit', () => {
-    const cxsRequest = { paymentType: 'XENDIT' };
+    const cxsRequest = { paymentType: 'XENDIT', currency: 'PHP' };
     const xenditRequest = {
       type: 'DIRECT_DEBIT',
       channelCode: 'BPI',
@@ -94,9 +109,9 @@ describe('Util :: Transformers :: XenditTransformer :: generateXenditBasePayment
     const result = generateXenditBasePaymentInfo(cxsRequest, xenditRequest);
 
     expect(result.gatewayProcessor).to.equal('generic');
-    expect(result.paymentInfo.paymentMethod).to.equal(
-      constants.PAYMENT_TYPES.XENDIT.toLowerCase()
-    );
+    // Payment Service contract expects paymentMethod in [dropin, card, paybylink, gcash].
+    expect(result.paymentInfo.paymentMethod).to.equal('xendit');
+    expect(result.paymentInfo.currency).to.equal('PHP');
     expect(result.paymentInfo.type).to.equal('DIRECT_DEBIT');
     expect(result.paymentInfo.channelCode).to.equal('BPI');
     expect(result.paymentInfo.productName).to.equal('LOAD');
@@ -105,8 +120,8 @@ describe('Util :: Transformers :: XenditTransformer :: generateXenditBasePayment
 
   it('should handle null and missing properties safely', () => {
     const result = generateXenditBasePaymentInfo({}, {});
-    expect(result.paymentInfo.channelCode).to.be.null();
-    expect(result.paymentInfo.productName).to.be.null();
+    // channelCode should be omitted when missing/null
+    expect(result.paymentInfo).to.not.include(['channelCode']);
     expect(result.paymentInfo.reusability).to.be.null();
   });
 });

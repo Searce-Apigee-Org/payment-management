@@ -17,7 +17,10 @@ const getAccessTokenT2 = async (http, basicAuth) => {
   const url = `${t2HttpProtocol}://${t2PaymentServiceHost}/${paymentAccessTokenEndpoint}`;
   logger.debug('GPAYO_ACCESS_TOKEN_URL', url);
   const options = {
-    headers: { 'Content-Type': 'application/json', Authorization: basicAuth },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${basicAuth}`,
+    },
   };
   try {
     const response = await http.post(url, {}, options, false, false);
@@ -54,8 +57,20 @@ const requestRefundByTokenIdT2 = async (http, payload, headers) => {
     const response = await http.post(url, payload, options, false, false);
     return response;
   } catch (err) {
-    logger.debug('REQUEST_REFUND_ERROR', err);
-    throw { type: 'OperationFailed' };
+    // logger.debug('REQUEST_REFUND_ERROR', err);
+    // throw { type: 'OperationFailed' };
+    logger.error('REQUEST_REFUND_ERROR', {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data,
+      url,
+      payload,
+    });
+    throw {
+      type: 'OperationFailed',
+      details: err.message || err.response?.data || 'Unknown T2 refund error',
+      source: 'PAYO_T2_REFUND',
+    };
   }
 };
 

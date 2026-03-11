@@ -1,9 +1,41 @@
 import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import { BuyLoadTransactionModel } from '../../models/mongo/index.js';
 
+// Accept Date, ISO string, moment-like objects (toDate).
+// Returns a Date or null.
+const coerceDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value) ? null : value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    return isNaN(d) ? null : d;
+  }
+  if (typeof value?.toDate === 'function') {
+    const d = value.toDate();
+    return d instanceof Date && !isNaN(d) ? d : null;
+  }
+  return null;
+};
+
+const requireValidDate = (value, fieldName) => {
+  const d = coerceDate(value);
+  if (!d) {
+    throw new Error(`Invalid ${fieldName} (expected Date/ISO string)`);
+  }
+  return d;
+};
+
 const findByMobileDateChannel = async (params) => {
   try {
-    const { channelCode, mobileNumber, fromDate, toDate } = params;
+    const {
+      channelCode,
+      mobileNumber,
+      fromDate: fromDateParam,
+      toDate: toDateParam,
+    } = params;
+
+    const fromDate = requireValidDate(fromDateParam, 'fromDate');
+    const toDate = requireValidDate(toDateParam, 'toDate');
     const query = {
       mobileNumber,
       channelCode,
@@ -34,7 +66,14 @@ const findByMobileDateChannel = async (params) => {
 
 const findByMobileDate = async (params) => {
   try {
-    const { mobileNumber, fromDate, toDate } = params;
+    const {
+      mobileNumber,
+      fromDate: fromDateParam,
+      toDate: toDateParam,
+    } = params;
+
+    const fromDate = requireValidDate(fromDateParam, 'fromDate');
+    const toDate = requireValidDate(toDateParam, 'toDate');
     const query = {
       mobileNumber,
       createDate: { $gte: fromDate, $lt: toDate },

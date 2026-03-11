@@ -9,15 +9,11 @@ const { describe, it, beforeEach, afterEach } = lab;
 export { lab };
 
 describe('Repository :: SecretManager :: getAuthorizationByChannel', () => {
-  let secretManagerClientMock, decodeB64Stub, secretUtilStub;
+  let secretManagerClientMock;
 
   beforeEach(() => {
     secretManagerClientMock = {
       get: Sinon.stub(),
-    };
-    decodeB64Stub = Sinon.stub();
-    secretUtilStub = {
-      buildSecretName: Sinon.stub().returns('mock-secret-name'),
     };
   });
 
@@ -25,62 +21,40 @@ describe('Repository :: SecretManager :: getAuthorizationByChannel', () => {
     Sinon.restore();
   });
 
-  it('should parse JSON secret', async () => {
-    secretManagerClientMock.get.resolves(
-      'eyJjbGllbnRJZCI6ICJjbGllbnQxIiwgImNsaWVudFNlY3JldCI6ICJzZWNyZXQxIn0='
-    );
-    decodeB64Stub.returns('{"clientId": "client1", "clientSecret": "secret1"}');
+  it('should return parsed credentials from Basic b64 encoded secret', async () => {
+    // "Basic client1:secret1" base64 encoded
+    secretManagerClientMock.get.resolves('Basic Y2xpZW50MTpzZWNyZXQx');
 
     const result = await authorizationRepository.getAuthorizationByChannel(
       secretManagerClientMock,
       'client1',
-      'refund',
-      { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
+      'refund'
     );
+
     expect(result).to.equal({ clientId: 'client1', clientSecret: 'secret1' });
   });
 
-  it('should return OperationFailed for non-JSON decoded secrets (e.g., colon-separated)', async () => {
+  it('should return parsed credentials from plain b64 encoded secret without Basic prefix', async () => {
+    // "client2:secret2" base64 encoded
     secretManagerClientMock.get.resolves('Y2xpZW50MjpzZWNyZXQy');
-    decodeB64Stub.returns('client2:secret2');
 
-    try {
-      await authorizationRepository.getAuthorizationByChannel(
-        secretManagerClientMock,
-        'client2',
-        'refund',
-        { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
-      );
-      throw new Error('Expected failure but succeeded');
-    } catch (err) {
-      expect(err.type).to.equal('OperationFailed');
-    }
+    const result = await authorizationRepository.getAuthorizationByChannel(
+      secretManagerClientMock,
+      'client2',
+      'refund'
+    );
+
+    expect(result).to.equal({ clientId: 'client2', clientSecret: 'secret2' });
   });
 
-  it('should throw OperationFailed for invalid secret format (non-JSON)', async () => {
-    secretManagerClientMock.get.resolves('aW52YWxpZA==');
-    decodeB64Stub.returns('invalid');
+  it('should throw ResourceNotFound for missing secret', async () => {
+    secretManagerClientMock.get.resolves(null);
+
     try {
       await authorizationRepository.getAuthorizationByChannel(
         secretManagerClientMock,
         'client3',
-        'refund',
-        { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
-      );
-      throw new Error('Expected failure but succeeded');
-    } catch (err) {
-      expect(err.type).to.equal('OperationFailed');
-    }
-  });
-
-  it('should throw for missing secret', async () => {
-    secretManagerClientMock.get.resolves(null);
-    try {
-      await authorizationRepository.getAuthorizationByChannel(
-        secretManagerClientMock,
-        'client4',
-        'refund',
-        { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
+        'refund'
       );
       throw new Error('Expected failure but succeeded');
     } catch (err) {
@@ -88,37 +62,19 @@ describe('Repository :: SecretManager :: getAuthorizationByChannel', () => {
     }
   });
 
-  it('should throw OperationFailed if an unexpected error occurs (no type property)', async () => {
-    secretManagerClientMock.get.rejects(new Error('Unexpected error'));
-    try {
-      await authorizationRepository.getAuthorizationByChannel(
-        secretManagerClientMock,
-        'client5',
-        'refund',
-        { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
-      );
-      throw new Error('Expected failure but succeeded');
-    } catch (err) {
-      expect(err.type).to.equal('OperationFailed');
-    }
-  });
+  it('should rethrow unexpected errors as-is', async () => {
+    const unexpectedError = new Error('Unexpected error');
+    secretManagerClientMock.get.rejects(unexpectedError);
 
-  it('should rethrow error if it has a type property', async () => {
-    const customError = {
-      type: 'CustomError',
-      details: 'Something went wrong',
-    };
-    secretManagerClientMock.get.rejects(customError);
     try {
       await authorizationRepository.getAuthorizationByChannel(
         secretManagerClientMock,
-        'client6',
-        'refund',
-        { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
+        'client4',
+        'refund'
       );
       throw new Error('Expected failure but succeeded');
     } catch (err) {
-      expect(err).to.equal(customError);
+      expect(err).to.equal(unexpectedError);
     }
   });
 });

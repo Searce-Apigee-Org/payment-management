@@ -32,6 +32,22 @@ describe('Util :: XenditUtil :: validateXenditRequest', () => {
     },
   };
 
+  it('should allow requestType BuyRoaming for Xendit (legacy support)', () => {
+    const req = JSON.parse(JSON.stringify(baseReq));
+    req.app.cxsRequest.settlementInformation[0].requestType = 'BuyRoaming';
+
+    const xenditReq = {
+      type: TYPE_EWALLET,
+      channelCode: CHANNEL_CODE_PAYMAYA,
+      eWallet: {
+        cancelUrl: 'https://a.com',
+        failureUrl: 'https://b.com',
+      },
+    };
+
+    expect(() => validateXenditRequest(req, xenditReq)).to.not.throw();
+  });
+
   it('should pass TYPE_EWALLET with PAYMAYA having valid URLs', () => {
     const req = JSON.parse(JSON.stringify(baseReq));
     const xenditReq = {
@@ -275,6 +291,26 @@ describe('Util :: XenditUtil :: validateXenditRequest', () => {
       paymentMethodId: 'PM123',
     };
 
-    expect(() => validateXenditRequest(req, xenditReq)).to.throw();
+    try {
+      validateXenditRequest(req, xenditReq);
+      throw new Error('Expected error was not thrown');
+    } catch (err) {
+      expect(err.type).to.equal('InvalidParameter');
+      expect(err.message).to.startWith(
+        'Invalid channel "invalid-channel" for Xendit payment type'
+      );
+    }
+  });
+
+  it('should pass when channel is "cxs-devs" for Xendit payment type', () => {
+    const req = JSON.parse(JSON.stringify(baseReq));
+    req.app.channel = 'cxs-devs';
+
+    const xenditReq = {
+      type: TYPE_CC_DC,
+      paymentMethodId: 'PM123',
+    };
+
+    expect(() => validateXenditRequest(req, xenditReq)).to.not.throw();
   });
 });

@@ -4,6 +4,7 @@ import Sinon from 'sinon';
 import {
   createPayment,
   getAccessToken,
+  requestRefundByTokenId,
 } from '../../../src/repositories/payo/paymentServiceRepository.js';
 
 const lab = Lab.script();
@@ -52,7 +53,7 @@ describe('Repository :: Payment Service Repository :: createPayment', () => {
   let req;
 
   beforeEach(() => {
-    http = { get: Sinon.stub() };
+    http = { post: Sinon.stub() };
     req = { http };
   });
 
@@ -60,9 +61,9 @@ describe('Repository :: Payment Service Repository :: createPayment', () => {
     Sinon.restore();
   });
 
-  it('should return response from http.get', async () => {
+  it('should return response from http.post', async () => {
     const mockResponse = { data: { status: 'ok' } };
-    http.get.resolves(mockResponse);
+    http.post.resolves(mockResponse);
 
     const input = {
       body: { amount: 100 },
@@ -72,11 +73,11 @@ describe('Repository :: Payment Service Repository :: createPayment', () => {
     const result = await createPayment(input, req);
 
     expect(result).to.equal(mockResponse);
-    expect(http.get.calledOnce).to.be.true();
+    expect(http.post.calledOnce).to.be.true();
   });
 
-  it('should throw OperationFailed when http.get rejects', async () => {
-    http.get.rejects(new Error('timeout'));
+  it('should throw OperationFailed when http.post rejects', async () => {
+    http.post.rejects(new Error('timeout'));
 
     const input = {
       body: { amount: 100 },
@@ -88,6 +89,45 @@ describe('Repository :: Payment Service Repository :: createPayment', () => {
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.type).to.equal('InternalOperationFailed');
+    }
+  });
+});
+
+describe('Repository :: Payment Service Repository :: requestRefundByTokenId', () => {
+  let http;
+
+  beforeEach(() => {
+    http = { post: Sinon.stub() };
+  });
+
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should return response from http.post', async () => {
+    const mockResponse = { data: { status: 'refunded' } };
+    http.post.resolves(mockResponse);
+
+    const payload = { tokenId: 'token123' };
+    const headers = { Authorization: 'Bearer token' };
+
+    const result = await requestRefundByTokenId(http, payload, headers);
+
+    expect(result).to.equal(mockResponse);
+    expect(http.post.calledOnce).to.be.true();
+  });
+
+  it('should throw OperationFailed when http.post rejects', async () => {
+    http.post.rejects(new Error('refund failed'));
+
+    const payload = { tokenId: 'token123' };
+    const headers = { Authorization: 'Bearer token' };
+
+    try {
+      await requestRefundByTokenId(http, payload, headers);
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('OperationFailed');
     }
   });
 });

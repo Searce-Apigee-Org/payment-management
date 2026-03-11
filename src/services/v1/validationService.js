@@ -1,6 +1,7 @@
 import { decodeB64, decodeUserJWT } from '@globetel/cxs-core/core/jwt/index.js';
 import { msisdnFormatter } from '@globetel/cxs-core/core/utils/string/index.js';
 import Decimal from 'decimal.js';
+import { buildLegacyCatalogKey } from '../../util/catalogKeyUtil.js';
 import {
   constants,
   dateTimeUtil,
@@ -18,8 +19,14 @@ const validateAccountBrand = async (mobileNumber, req) => {
     return constants.PAYMENT_ENTITY_TYPES.ENTITY_PROMO;
   }
 
+  const formattedMobileNumber = msisdnFormatter(mobileNumber, '0');
+
+  // Use `accountInfoService.getInfo` in its GetDetailsByMSISDN mode.
+  // IMPORTANT: `accountInfoService.getInfo` expects *camelCase* keys
+  // (`msisdn`, `primaryResourceType`) and it will map them to the
+  // PascalCase tags required by HIP.
   const getDetailsRequest = {
-    msisdn: msisdnFormatter(mobileNumber, '09'),
+    msisdn: formattedMobileNumber,
     primaryResourceType: 'C',
   };
 
@@ -28,43 +35,48 @@ const validateAccountBrand = async (mobileNumber, req) => {
     getDetailsRequest
   );
 
+  // Legacy parity (PaymentRequestValidator.validateAccountBrand):
+  // - if response is empty OR hipResponse is null/empty => OutboundOperationFailed
   if (!accountInfoResponse) {
-    throw {
-      type: 'InternalOperationFailed',
-    };
-  }
-
-  if (accountInfoResponse.error === '40002') {
-    throw {
-      type: 'InvalidParameter',
-    };
+    throw { type: 'OutboundOperationFailed' };
   }
 
   const hipResponse = accountInfoResponse.hipResponse;
 
   if (
-    hipResponse === null ||
+    !hipResponse ||
     (typeof hipResponse === 'object' && Object.keys(hipResponse).length === 0)
   ) {
-    throw {
-      type: 'InternalOperationFailed',
-    };
+    throw { type: 'OutboundOperationFailed' };
   }
 
   const attributesInfoList =
     hipResponse?.UnifiedResourceDetails?.AttributesInfoList?.AttributesInfo;
 
+  // Legacy parity: only treat BRAND == "GHP" as postpaid.
   if (Array.isArray(attributesInfoList)) {
     const brandAttr = attributesInfoList.find(
       (attr) => attr?.AttrName === 'BRAND'
     );
-    if (brandAttr?.AttrValue === 'GHP') {
+    const brand = (brandAttr?.AttrValue ?? '').toString().toUpperCase();
+
+    if (brand === 'GHP') {
       return constants.PAYMENT_ENTITY_TYPES.ENTITY_PTPROMO;
     }
   }
+
+  // Legacy default
+  return constants.PAYMENT_ENTITY_TYPES.ENTITY_PROMO;
 };
 
 const validatePaymentInformation = async (req) => {
+  logger.debug('VALIDATE_PAYMENT_INFORMATION_START', {
+    channel: req?.app?.channel,
+    paymentType: req?.app?.cxsRequest?.paymentType,
+    settlementRequestType:
+      req?.app?.cxsRequest?.settlementInformation?.[0]?.requestType,
+  });
+
   // Defensive validation for required fields
   if (
     !req.app ||
@@ -97,17 +109,33 @@ const validatePaymentInformation = async (req) => {
 
   if (!channel) return;
 
-  if (channel.toLowerCase() === NG1.toLowerCase()) {
-    const userToken = headers['user-token'];
+  // Treat any channel that starts with "superapp" as NG1 (e.g., "superapp", "superapp-devs")
+  // `channel` is guaranteed truthy here due to the early return above.
+  const normalizedChannel = String(channel).toLowerCase();
+  const isNg1Channel = normalizedChannel.startsWith(NG1.toLowerCase());
+
+  if (isNg1Channel) {
+    logger.debug('VALIDATE_PAYMENT_INFORMATION_CHANNEL', {
+      channel,
+      normalizedChannel,
+      path: 'NG1',
+    });
+    const userToken = headers['user-token'] ?? headers['user_token'];
     if (!userToken) {
       throw {
         type: 'InsufficientParameters',
+        details: "Missing required header 'user-token' for NG1 channel",
       };
     }
 
     for (const settlement of settlementInformation) {
       switch (paymentType.toLowerCase()) {
         case DROPIN.toLowerCase():
+          logger.debug('VALIDATE_PAYMENT_INFORMATION_PROCESSOR', {
+            paymentType,
+            requestType: settlement?.requestType,
+            processor: 'AdyenDropinRequestType',
+          });
           await paymentTypeModels.AdyenDropinRequestType.validateAdyenDropinRequest(
             paymentInformation
           );
@@ -118,6 +146,11 @@ const validatePaymentInformation = async (req) => {
           );
           break;
         case GCASH.toLowerCase():
+          logger.debug('VALIDATE_PAYMENT_INFORMATION_PROCESSOR', {
+            paymentType,
+            requestType: settlement?.requestType,
+            processor: 'GcashRequestType',
+          });
           await paymentTypeModels.GcashRequestType.validateGcashRequest(
             paymentInformation
           );
@@ -128,6 +161,11 @@ const validatePaymentInformation = async (req) => {
           );
           break;
         case XENDIT.toLowerCase():
+          logger.debug('VALIDATE_PAYMENT_INFORMATION_PROCESSOR', {
+            paymentType,
+            requestType: settlement?.requestType,
+            processor: 'XenditRequestType',
+          });
           await paymentTypeModels.XenditRequestType.validateXenditRequest(
             paymentInformation
           );
@@ -143,6 +181,11 @@ const validatePaymentInformation = async (req) => {
     channel &&
     paymentsUtil.checkValidChannel(channel, paymentType, NON_BILL)
   ) {
+    logger.debug('VALIDATE_PAYMENT_INFORMATION_CHANNEL', {
+      channel,
+      path: 'OTHER_CHANNELS',
+      paymentType,
+    });
     for (const settlement of settlementInformation) {
       if (paymentType.toLowerCase() === XENDIT.toLowerCase()) {
         const reqType = settlement.requestType;
@@ -150,6 +193,11 @@ const validatePaymentInformation = async (req) => {
           channel.toLowerCase() === DNO.toLowerCase() &&
           reqType.toLowerCase() === NON_BILL.toLowerCase()
         ) {
+          logger.debug('VALIDATE_PAYMENT_INFORMATION_PROCESSOR', {
+            paymentType,
+            requestType: reqType,
+            processor: 'DnoXenditRequestType',
+          });
           await paymentTypeModels.DnoXenditRequestType.validateDnoXenditRequest(
             paymentInformation
           );
@@ -159,6 +207,12 @@ const validatePaymentInformation = async (req) => {
             settlement
           );
         } else {
+          logger.debug('VALIDATE_PAYMENT_INFORMATION_PROCESSOR', {
+            paymentType,
+            requestType: reqType,
+            processor: 'XenditRequestTypeForOtherChannels',
+            channel,
+          });
           await paymentTypeModels.XenditRequestType.validateXenditRequest(
             paymentInformation
           );
@@ -172,6 +226,8 @@ const validatePaymentInformation = async (req) => {
       }
     }
   }
+
+  logger.debug('VALIDATE_PAYMENT_INFORMATION_OK');
 };
 
 const validateTransactions = async (req, target) => {
@@ -181,7 +237,7 @@ const validateTransactions = async (req, target) => {
     headers,
     priceValidationService,
     validationService,
-    cxsRequest: { settlementInformation: settlementObject },
+    channelConfig,
   } = req;
   let isVoucherDiscount = false;
   const {
@@ -191,14 +247,27 @@ const validateTransactions = async (req, target) => {
     paymentTypeModels,
   } = req;
 
-  const { requestType, transactions, mobileNumber } = settlementObject;
+  // `target` is the *settlement object being validated*.
+  // IMPORTANT: `req.cxsRequest.settlementInformation` is an array in normal
+  // CreatePaymentSession flows, so we must not destructure it as if it were a
+  // single object.
+  const settlementObject = target || {};
+
+  const { requestType, transactions, mobileNumber } = settlementObject || {};
+
+  // Defensive: Ensure requestType is a string before using .toLowerCase()
+  const safeRequestType = typeof requestType === 'string' ? requestType : '';
+  const safeChannel = typeof channel === 'string' ? channel : '';
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
 
   const {
     PAYMENT_REQUEST_TYPES: {
       BUY_PROMO,
       BUY_LOAD,
       BUY_VOUCHER,
+      BUY_ROAMING,
       VOLUME_BOOST,
+      BUYBBCONTENT,
       ECPAY,
       BBPREPAIDPROMO,
       BBPREPAIDREPAIR,
@@ -212,14 +281,16 @@ const validateTransactions = async (req, target) => {
     isVoucherDiscount = true;
   }
 
-  let channelConfig = await mongo.channelConfigRepository.findOneById(
-    principalId,
-    req
-  );
+  // Persist payment entity via migratedTables-aware repository (injected under `channelConfig`)
+  let buyLoadChannelConfigRepository =
+    await channelConfig.buyLoadChannelConfigRepository.findOneById(
+      principalId,
+      req
+    );
 
-  if (stringUtil.compareLowerCase(BUY_PROMO, requestType)) {
+  if (stringUtil.compareLowerCase(BUY_PROMO, safeRequestType)) {
     paymentTypeModels.PurchasePromoRequestType.validatePurchasePromoRequest(
-      transactions
+      safeTransactions
     );
     if (!mobileNumber) {
       throw {
@@ -242,8 +313,8 @@ const validateTransactions = async (req, target) => {
         req
       );
     }
-  } else if (stringUtil.compareLowerCase(BUY_LOAD, requestType)) {
-    paymentTypeModels.BuyLoad.validateBuyLoadRequestType(transactions);
+  } else if (stringUtil.compareLowerCase(BUY_LOAD, safeRequestType)) {
+    paymentTypeModels.BuyLoad.validateBuyLoadRequestType(safeTransactions);
 
     if (!mobileNumber) {
       throw {
@@ -256,7 +327,7 @@ const validateTransactions = async (req, target) => {
     if (!isVoucherDiscount) {
       await validationService.validateSettlementAmountDiscount(
         settlementObject,
-        channelConfig,
+        buyLoadChannelConfigRepository,
         req
       );
     } else {
@@ -265,8 +336,8 @@ const validateTransactions = async (req, target) => {
         req
       );
     }
-  } else if (stringUtil.compareLowerCase(BUY_VOUCHER, requestType)) {
-    paymentTypeModels.BuyVoucher.validateBuyVoucherRequest(transactions);
+  } else if (stringUtil.compareLowerCase(BUY_VOUCHER, safeRequestType)) {
+    paymentTypeModels.BuyVoucher.validateBuyVoucherRequest(safeTransactions);
 
     validationUtil.validateServiceNumber(settlementObject);
     await priceValidationService.validateServiceIdPrice(
@@ -275,18 +346,160 @@ const validateTransactions = async (req, target) => {
       BUY_VOUCHER
     );
     validationUtil.validateSettlementAmount(settlementObject);
-  } else if (stringUtil.compareLowerCase(VOLUME_BOOST, requestType)) {
-    paymentTypeModels.volumeBoost.validateVolumeBoostRequest(transactions);
-    validateVerificationToken(settlementObject);
-  } else if (stringUtil.compareLowerCase(ECPAY, requestType)) {
-    if (principalId && stringUtil.compareLowerCase(principalId, NG1)) {
+  } else if (stringUtil.compareLowerCase(BUY_ROAMING, safeRequestType)) {
+    // Legacy: BuyRoaming is a transaction-based request type similar to BuyLoad/BuyPromo.
+    // It allows transactions[] and requires settlement.amount == sum(txn.amount).
+    if (!safeTransactions.length) {
       throw {
         type: 'InvalidParameter',
-        displayMessage: 'Additional Property not allowed(transactions[]).',
+        displayMessage: 'Transactions should not be empty.',
       };
     }
 
-    paymentTypeModels.ECPay.validateECPayRequest(transactions);
+    // Require at least one identity field on settlement.
+    if (!settlementObject.mobileNumber && !settlementObject.accountNumber) {
+      throw {
+        type: 'InsufficientParameters',
+      };
+    }
+
+    // Schema enforces this, but keep runtime parity.
+    if (!stringUtil.compareLowerCase(settlementObject.transactionType, 'N')) {
+      throw {
+        type: 'InvalidRequestValidateException',
+        displayMessage: 'The transaction type is invalid.',
+      };
+    }
+
+    validationUtil.validateSettlementAmount(settlementObject);
+
+    // Transaction rules:
+    // - amount required
+    // - either keyword OR serviceId (XOR)
+    // - when keyword is used, serviceId/param must not be present
+    // - optional activationDate/targetDestination must not be blank
+    // - activationDate must match yyyy-MM-dd'T'HH:mm:ss
+    const activationDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+
+    for (const t of safeTransactions) {
+      const amount = t?.amount;
+      const keyword = typeof t?.keyword === 'string' ? t.keyword.trim() : '';
+      const serviceId =
+        typeof t?.serviceId === 'string' ? t.serviceId.trim() : '';
+      const param = typeof t?.param === 'string' ? t.param.trim() : '';
+      const activationDate =
+        typeof t?.activationDate === 'string' ? t.activationDate.trim() : '';
+      const targetDestination =
+        typeof t?.targetDestination === 'string'
+          ? t.targetDestination.trim()
+          : '';
+
+      if (amount === null || amount === undefined) {
+        throw {
+          type: 'InsufficientParameters',
+        };
+      }
+
+      const hasKeyword = Boolean(keyword);
+      const hasServiceId = Boolean(serviceId);
+
+      if (!hasKeyword && !hasServiceId) {
+        throw {
+          type: 'InvalidParameter',
+          displayMessage:
+            'serviceId or keyword is required when requestType is BuyRoaming',
+        };
+      }
+
+      if (hasKeyword && hasServiceId) {
+        throw {
+          type: 'InvalidParameter',
+          displayMessage:
+            'keyword must not coexist with serviceId for BuyRoaming',
+        };
+      }
+
+      if (hasKeyword && (param || hasServiceId)) {
+        throw {
+          type: 'InvalidParameter',
+          displayMessage:
+            'keyword must not coexist with serviceId/param for BuyRoaming',
+        };
+      }
+
+      if (hasServiceId && !/^\d+$/.test(serviceId)) {
+        throw {
+          type: 'InvalidParameter',
+          displayMessage: 'serviceId must be numeric for BuyRoaming',
+        };
+      }
+
+      if (t?.activationDate !== undefined && t?.activationDate !== null) {
+        if (!activationDate) {
+          throw {
+            type: 'InvalidParameter',
+            displayMessage: 'activationDate should not empty or null',
+          };
+        }
+
+        if (!activationDateRegex.test(activationDate)) {
+          throw {
+            type: 'InvalidParameter',
+            displayMessage:
+              "activationDate must match format yyyy-MM-dd'T'HH:mm:ss",
+          };
+        }
+      }
+
+      if (t?.targetDestination !== undefined && t?.targetDestination !== null) {
+        if (!targetDestination) {
+          throw {
+            type: 'InvalidParameter',
+            displayMessage: 'targetDestination should not empty or null',
+          };
+        }
+      }
+    }
+  } else if (stringUtil.compareLowerCase(VOLUME_BOOST, safeRequestType)) {
+    paymentTypeModels.volumeBoost.validateVolumeBoostRequest(safeTransactions);
+    validateVerificationToken(settlementObject);
+  } else if (stringUtil.compareLowerCase(BUYBBCONTENT, safeRequestType)) {
+    // Legacy: BuyBBContent is a transaction-based request type.
+    // It allows transactions[] and requires settlement.amount == sum(txn.amount).
+    if (!safeTransactions.length) {
+      throw {
+        type: 'InvalidParameter',
+        displayMessage: 'Transactions should not be empty.',
+      };
+    }
+
+    validationUtil.validateSettlementAmount(settlementObject);
+
+    // Validate minimal required fields on each transaction.
+    for (const t of safeTransactions) {
+      const missing =
+        !t ||
+        !t.productCode ||
+        !t.identityType ||
+        !t.requestDate ||
+        !t.provisioningServiceProvider ||
+        !t.identityValue ||
+        t.amount === null ||
+        t.amount === undefined;
+
+      if (missing) {
+        throw {
+          type: 'InvalidParameter',
+          displayMessage: 'The request parameter is invalid.',
+        };
+      }
+    }
+  } else if (stringUtil.compareLowerCase(ECPAY, safeRequestType)) {
+    // ECPay requests are expected to provide the bill-payment breakdown under
+    // `settlementInformation[].transactions` (partnerReferenceNumber, billerName,
+    // accountIdentifier, etc.). This is required for BOTH NG1 (SuperApp) and
+    // other channels because we validate the PRNs against the ECPay table.
+    paymentTypeModels.ECPay.validateECPayRequest(safeTransactions);
 
     const userToken = headers['user-token'];
 
@@ -307,7 +520,7 @@ const validateTransactions = async (req, target) => {
     );
   } else if (
     [BBPREPAIDPROMO.toLowerCase(), BBPREPAIDREPAIR.toLowerCase()].includes(
-      requestType.toLowerCase()
+      safeRequestType.toLowerCase()
     )
   ) {
     paymentTypeModels.GFiberPrepaid.validateGFiberRequest(settlementObject);
@@ -348,12 +561,12 @@ const validateTransactions = async (req, target) => {
 
     await validationService.validateGPFTransaction(settlementObject, req);
   } else if (
-    stringUtil.compareLowerCase(PAY_BILLS, requestType) &&
-    !transactions.length
+    stringUtil.compareLowerCase(PAY_BILLS, safeRequestType) &&
+    !safeTransactions.length
   ) {
     if (
       settlementObject.transactionType === 'G' &&
-      stringUtil.compareLowerCase(channel, NG1)
+      stringUtil.compareLowerCase(safeChannel, NG1)
     ) {
       if (!target.accountType && !target.accountName) {
         await validationService.validatePayBillsRequest(
@@ -363,22 +576,22 @@ const validateTransactions = async (req, target) => {
         );
       }
     }
-  } else if (stringUtil.compareLowerCase(CHANGE_SIM, requestType)) {
-    if (channel && !stringUtil.compareLowerCase(channel, NG1)) {
+  } else if (stringUtil.compareLowerCase(CHANGE_SIM, safeRequestType)) {
+    if (safeChannel && !stringUtil.compareLowerCase(safeChannel, NG1)) {
       throw {
         type: 'InvalidParameter',
         displayMessage: 'Additional Property not allowed(transactions[]).',
       };
     }
 
-    if (!transactions.length) {
+    if (!safeTransactions.length) {
       throw {
         type: 'InvalidParameter',
         displayMessage: 'Transactions should not be empty.',
       };
     }
 
-    transactions.forEach((t) => {
+    safeTransactions.forEach((t) => {
       if (!t.transactionId) {
         throw {
           type: 'MissingParameterValidateException',
@@ -395,14 +608,17 @@ const validateTransactions = async (req, target) => {
       }
     });
 
-    await validationService.validateGCSBucketValues(
-      settlementObject,
-      principalId,
-      requestType,
-      req
-    );
+    // NOTE:
+    // `validateGCSBucketValues` expects `(settlementInformation, req)`.
+    // The previous (legacy) call signature mistakenly passed
+    // `(settlementInformation, principalId, requestType, req)` which caused
+    // runtime failures like:
+    //   TypeError: Cannot read properties of undefined (reading 'principalId')
+    // because the function attempted to read `req.app.principalId` from the
+    // *second* argument (a string).
+    await validationService.validateGCSBucketValues(settlementObject, req);
   } else {
-    if (transactions.length) {
+    if (safeTransactions.length) {
       throw {
         type: 'InvalidParameter',
         displayMessage: 'Additional Property not allowed(transactions[]).',
@@ -415,22 +631,26 @@ const validateSecurityLimits = async (settlementInformation, req) => {
   const {
     app: { principalId },
     mongo,
+    channelConfig,
+    transactions,
   } = req;
 
   const { amount } = settlementInformation;
   let mobileNumber = msisdnFormatter(settlementInformation.mobileNumber, '09');
 
-  let channelConfig = await mongo.channelConfigRepository.findOneById(
-    principalId,
-    req
-  );
+  // Persist payment entity via migratedTables-aware repository (injected under `channelConfig`)
+  let buyLoadChannelConfigRepository =
+    await channelConfig.buyLoadChannelConfigRepository.findOneById(
+      principalId,
+      req
+    );
+  let sharedConfig =
+    await channelConfig.buyLoadChannelConfigRepository.findOneById(
+      constants.CONFIG.SHARED,
+      req
+    );
 
-  let sharedConfig = await mongo.channelConfigRepository.findOneById(
-    constants.CONFIG.SHARED,
-    req
-  );
-
-  if (!channelConfig) {
+  if (!buyLoadChannelConfigRepository) {
     throw {
       type: 'Default',
       displayMessage: 'No channel configuration found.',
@@ -441,40 +661,52 @@ const validateSecurityLimits = async (settlementInformation, req) => {
   let isSharedConfig = false;
 
   if (!sharedConfig) {
-    dailyAmountLimit = channelConfig.maximumDailyAmount;
+    dailyAmountLimit = buyLoadChannelConfigRepository.maximumDailyAmount;
   } else {
     isSharedConfig = true;
     dailyAmountLimit = sharedConfig.maximumDailyAmount;
   }
 
-  const {
-    startTime: { hh = 22, mm = 0, ss = 0 },
-    channelCode,
-  } = channelConfig;
+  const { channelCode } = buyLoadChannelConfigRepository;
+
+  // startTime can be missing in some channel configs; default to legacy values.
+  const startTime = buyLoadChannelConfigRepository?.startTime || {};
+  const hh = startTime.hh ?? 22;
+  const mm = startTime.mm ?? 0;
+  const ss = startTime.ss ?? 0;
 
   const { dateFrom, dateTo, formattedDateFrom, formattedDateTo, now } =
     dateTimeUtil.computeDailyWindow({ hh, mm, ss });
 
-  let transactions = null;
+  let buyLoadTransactions = null;
 
   if (!isSharedConfig) {
-    transactions =
-      await mongo.buyLoadTransactionsRepository.findByMobileDateChannel({
-        mobileNumber,
-        channelCode,
-        formattedDateFrom,
-        formattedDateTo,
-      });
+    // Persist payment entity via migratedTables-aware repository (injected under `transactions`)
+    buyLoadTransactions =
+      await transactions.buyLoadTransactionsRepository.findByMobileDateChannel(
+        {
+          mobileNumber,
+          channelCode,
+          fromDate: formattedDateFrom,
+          toDate: formattedDateTo,
+        },
+        req
+      );
   } else {
-    transactions = await mongo.buyLoadTransactionsRepository.findByMobileDate({
-      mobileNumber,
-      formattedDateFrom,
-      formattedDateTo,
-    });
+    buyLoadTransactions =
+      await transactions.buyLoadTransactionsRepository.findByMobileDate(
+        {
+          mobileNumber,
+          fromDate: formattedDateFrom,
+          toDate: formattedDateTo,
+        },
+        req
+      );
   }
 
   if (
-    transactions.length >= channelConfig.maximumDailyTransactions &&
+    buyLoadTransactions.length >=
+      buyLoadChannelConfigRepository.maximumDailyTransactions &&
     now.valueOf() <= dateTo.valueOf()
   ) {
     logger.error(
@@ -488,7 +720,10 @@ const validateSecurityLimits = async (settlementInformation, req) => {
     };
   }
 
-  const totalAmount = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+  const totalAmount = buyLoadTransactions.reduce(
+    (sum, t) => sum + (t.amount || 0),
+    0
+  );
   const currentDayTotalAmount = totalAmount + amount;
 
   if (
@@ -534,16 +769,48 @@ const validateVerificationToken = (settlementInformation) => {
 };
 
 const validateECPayTableRequest = async (settlementInformation, req) => {
-  const { mongo } = req;
-  const { transactions } = settlementInformation;
+  const { transactions } = req;
+  const { transactions: settlementTransactions } = settlementInformation;
 
-  for (const t of transactions) {
+  // `transactions` is injected by `globalDependenciesPlugin` and is expected to
+  // expose the facade repository `ecpayTransactionsRepository`.
+  // Keep a backward-compatible fallback to the legacy/singular name to avoid
+  // runtime TypeErrors if some environments/tests still use it.
+  const ecpayRepo =
+    transactions?.ecpayTransactionsRepository ??
+    transactions?.ecpayTransactionRepository;
+
+  if (!ecpayRepo || typeof ecpayRepo.findByPartnerRef !== 'function') {
+    logger.error('ECPAY_TABLE_REQUEST_VALIDATION_MISCONFIGURED', {
+      hasTransactions: Boolean(transactions),
+      keys: transactions ? Object.keys(transactions) : [],
+    });
+
+    throw {
+      type: 'InternalOperationFailed',
+      details:
+        'Missing transactions.ecpayTransactionsRepository.findByPartnerRef',
+    };
+  }
+
+  for (const t of settlementTransactions) {
     const partnerRef = t.partnerReferenceNumber;
 
-    const ecpayTransactionEntity =
-      await mongo.ecpayTransactionRepository.findByPartnerRef(partnerRef);
+    // Persist payment entity via migratedTables-aware repository (injected under `transactions`)
+    const ecpayTransactionEntity = await ecpayRepo.findByPartnerRef(
+      partnerRef,
+      req
+    );
 
-    if (!ecpayTransactionEntity.length) {
+    // Repository implementations may return either:
+    // - an array (legacy behavior)
+    // - a single object (mongo/dynamo findOne style)
+    // - null/undefined when not found
+    const record = Array.isArray(ecpayTransactionEntity)
+      ? ecpayTransactionEntity[0]
+      : ecpayTransactionEntity;
+
+    if (!record) {
       logger.error(
         'ECPAY_TABLE_REQUEST_VALIDATION',
         'NotMatchParameterException : ECPay PRN Transaction Not found'
@@ -554,13 +821,14 @@ const validateECPayTableRequest = async (settlementInformation, req) => {
       };
     }
 
-    validationUtil.validateECPayTransactionEntity(ecpayTransactionEntity[0], t);
+    validationUtil.validateECPayTransactionEntity(record, t);
   }
 };
 
 const validateECPaySettlementAmount = async (settlementInformation, req) => {
   const {
-    headers: { paymentType },
+    headers: { paymentType: headerPaymentType } = {},
+    app: { cxsRequest } = {},
     secretManager,
     secret,
   } = req;
@@ -571,6 +839,11 @@ const validateECPaySettlementAmount = async (settlementInformation, req) => {
 
   const { transactions } = settlementInformation;
 
+  // Legacy behavior expected `paymentType` in headers.
+  // SuperApp/CreatePaymentSession sends it in the payload (`cxsRequest.paymentType`).
+  // Accept both to avoid false validation failures.
+  const paymentType = headerPaymentType ?? cxsRequest?.paymentType ?? null;
+
   if (!paymentType) {
     throw {
       type: 'InvalidParameter',
@@ -578,10 +851,15 @@ const validateECPaySettlementAmount = async (settlementInformation, req) => {
     };
   }
 
+  // Used only for better logging + the "amount autofix" behavior for ECPay/GCash.
+  const requestType = settlementInformation?.requestType ?? null;
+
   for (const t of transactions) {
-    const amountToPay = Number(t.amountToPay);
-    const serviceCharge = Number(t.serviceCharge);
-    let totalAmount = 0;
+    // Use Decimal to avoid floating-point rounding issues that can cause
+    // `Math.ceil(x*100)/100` to over-round (e.g., 1.1000000000000001 -> 1.11).
+    const amountToPay = new Decimal(Number(t.amountToPay) || 0);
+    const serviceCharge = new Decimal(Number(t.serviceCharge) || 0);
+    let totalAmount = new Decimal(0);
 
     if (stringUtil.compareLowerCase(paymentType, GCASH)) {
       const processingFeeRate = Number(
@@ -590,37 +868,93 @@ const validateECPaySettlementAmount = async (settlementInformation, req) => {
         )
       );
 
-      const processingFeeResult =
-        (amountToPay + serviceCharge) * processingFeeRate;
+      // processingFeeRate is expected to be a decimal rate (e.g., 0.02 == 2%)
+      const processingFeeResult = amountToPay
+        .plus(serviceCharge)
+        .mul(new Decimal(processingFeeRate || 0));
 
-      totalAmount = amountToPay + serviceCharge + processingFeeResult;
+      totalAmount = amountToPay.plus(serviceCharge).plus(processingFeeResult);
       t.processingFee = processingFeeRate;
     } else if (stringUtil.compareLowerCase(paymentType, DROPIN)) {
-      totalAmount = amountToPay + serviceCharge;
+      totalAmount = amountToPay.plus(serviceCharge);
     }
 
-    totalAmount = Math.ceil(totalAmount * 100) / 100;
+    // Legacy rounding behavior: round UP to 2 decimal places
+    const roundedTotal = totalAmount
+      .toDecimalPlaces(2, Decimal.ROUND_UP)
+      .toNumber();
 
-    t.totalAmount = totalAmount;
+    t.totalAmount = roundedTotal;
   }
 
-  const totalTransAmountToPay = transactions
-    .map((t) => t.totalAmount)
-    .reduce((sum, curr) => sum + curr, 0);
+  // Amount validation:
+  // - Legacy SuperApp ECPay GCASH flows often send settlement.amount == sum(amountToPay + serviceCharge)
+  //   (i.e., excluding processing fee). We compute processing fee and should pass the *total* amount to PAYO.
+  // - Other flows must still match totals.
+  const normalizeMoney = (n) => Number(Number(n || 0).toFixed(2));
+  const computedTotal = normalizeMoney(
+    transactions.map((t) => t.totalAmount).reduce((sum, curr) => sum + curr, 0)
+  );
 
+  const computedBaseWithoutFee = normalizeMoney(
+    transactions
+      .map((t) => Number(t.amountToPay) + Number(t.serviceCharge))
+      .reduce((sum, curr) => sum + curr, 0)
+  );
+
+  const providedSettlementAmount = normalizeMoney(settlementInformation.amount);
+
+  // If the client sent the amount WITHOUT processing fee for ECPAY+GCASH,
+  // auto-correct it to the computed total (with fee) so downstream PAYO
+  // gets the proper amount and we avoid false InvalidRequestValidateException.
   if (
-    Number(totalTransAmountToPay.toFixed(2)) !==
-    Number(settlementInformation.amount.toFixed(2))
+    stringUtil.compareLowerCase(
+      requestType,
+      constants.PAYMENT_REQUEST_TYPES.ECPAY
+    ) &&
+    stringUtil.compareLowerCase(paymentType, GCASH) &&
+    providedSettlementAmount === computedBaseWithoutFee &&
+    providedSettlementAmount !== computedTotal
   ) {
+    logger.info('ECPAY_SETTLEMENT_AMOUNT_AUTOCORRECT', {
+      requestType,
+      paymentType,
+      providedSettlementAmount,
+      computedBaseWithoutFee,
+      computedTotal,
+    });
+
+    settlementInformation.amount = computedTotal;
+    return;
+  }
+
+  if (providedSettlementAmount !== computedTotal) {
+    logger.error('ECPAY_SETTLEMENT_AMOUNT_MISMATCH', {
+      requestType,
+      paymentType,
+      providedSettlementAmount,
+      computedTotal,
+      computedBaseWithoutFee,
+      transactions: transactions?.map((t) => ({
+        amountToPay: t?.amountToPay,
+        serviceCharge: t?.serviceCharge,
+        processingFee: t?.processingFee,
+        totalAmount: t?.totalAmount,
+      })),
+    });
+
     throw {
       type: 'InvalidRequestValidateException',
+      displayMessage: 'The request parameters failed in validation.',
     };
   }
 };
 
 const validateGPFTransaction = async (settlementInformation, req) => {
-  const { transactionType, createOrderExternal, amount, dnoService } =
+  const { transactionType, createOrderExternal, amount } =
     settlementInformation;
+
+  const { dnoService } = req;
 
   if (!stringUtil.compareLowerCase(transactionType, 'N')) {
     throw {
@@ -669,33 +1003,30 @@ const validatePayBillsRequest = async (settlementInformation, target, req) => {
     getAccountInfoReq
   );
 
-  if (!getAccountInfoReq.status === '00') {
+  // Legacy alignment: validate the HIP response status, not the request.
+  if (getAccountInfoResponse?.hipResponse?.Status !== '00') {
     throw {
       type: 'InvalidParameter',
     };
   }
 
   if (landlineNumber) {
-    if (getAccountInfoResponse.accountNumber) {
-      target.accountNumber = getAccountInfoResponse.accountNumber;
+    if (getAccountInfoResponse?.hipResponse?.AccountNumber) {
+      target.accountNumber = getAccountInfoResponse.hipResponse.AccountNumber;
       settlementInformation.accountNumber =
-        getAccountInfoResponse.accountNumber;
+        getAccountInfoResponse.hipResponse.AccountNumber;
     }
   }
 
   target.accountType = stringUtil.encode(
-    Buffer.from(getAccountInfoResponse.accountType, 'utf8')
+    Buffer.from(getAccountInfoResponse?.hipResponse?.AccountType || '', 'utf8')
   );
   target.accountName = stringUtil.encode(
-    Buffer.from(getAccountInfoResponse.accountName, 'utf8')
+    Buffer.from(getAccountInfoResponse?.hipResponse?.AccountName || '', 'utf8')
   );
 
-  settlementInformation.accountType = stringUtil.encode(
-    Buffer.from(getAccountInfoResponse.accountType, 'utf8')
-  );
-  settlementInformation.accountName = stringUtil.encode(
-    Buffer.from(getAccountInfoResponse.accountName, 'utf8')
-  );
+  settlementInformation.accountType = target.accountType;
+  settlementInformation.accountName = target.accountName;
 };
 
 const validateGCSBucketValues = async (settlementInformation, req) => {
@@ -705,9 +1036,14 @@ const validateGCSBucketValues = async (settlementInformation, req) => {
   } = req;
   const { requestType, amount } = settlementInformation;
 
-  const fileSuffix = `${principalId}_${requestType.toUpperCase()}`;
-
-  const res = await gcs.changeSimRepository.getResult(req, fileSuffix);
+  // Legacy alignment: key is derived from Authorization client_id + suffix.
+  // Fallback: keep existing principalId-based key if auth header missing.
+  const legacyKey = buildLegacyCatalogKey(req, requestType);
+  const fallbackKey = `${principalId}_${String(requestType || '').toUpperCase()}`;
+  const res = await gcs.changeSimRepository.getResult(
+    req,
+    legacyKey ?? fallbackKey
+  );
 
   const formattedPrice = paymentsUtil.formatAmount(amount);
 
@@ -746,12 +1082,15 @@ const validateCheckConvenienceFee = async (req) => {
   } = constants;
 
   const nodeEnv = config.get('nodeEnv');
-  if (
-    !(channel && stringUtil.compareLowerCase(channel, NG1)) ||
-    (nodeEnv === 'preprod' && stringUtil.compareLowerCase(channel, CPT))
-  ) {
-    return;
-  }
+
+  const isNg1 = channel && stringUtil.compareLowerCase(channel, NG1);
+  const isCptPreprod =
+    nodeEnv === 'preprod' &&
+    channel &&
+    stringUtil.compareLowerCase(channel, CPT);
+
+  // Legacy: allow NG1 in any env; allow CPT only in preprod
+  if (!isNg1 && !isCptPreprod) return;
 
   if (!headers['user-token']) {
     return;
@@ -781,11 +1120,18 @@ const validateCheckConvenienceFee = async (req) => {
 
           if (settlement.mobileNumber) {
             isMobileNumber = true;
-            account = msisdnFormatter(settlement.mobileNumber, '09');
+            account = msisdnFormatter(settlement.mobileNumber, '0');
           }
 
+          // Validate the *target account identifier* belongs to the user.
+          // This mirrors legacy SuperApp behavior.
+          const targetIdentifier = account;
           let enrolledAccountDetails =
-            await enrolledAccountsService.validateEnrolledAccounts(req, uuid);
+            await enrolledAccountsService.validateEnrolledAccounts(
+              req,
+              uuid,
+              targetIdentifier
+            );
 
           if (settlement.billsType) {
             if (
@@ -818,7 +1164,7 @@ const validateCheckConvenienceFee = async (req) => {
               } else {
                 if (isMobileNumber) {
                   const getDetailsRequest = {
-                    account,
+                    msisdn: account,
                     primaryResourceType: 'C',
                   };
                   let getAccountInfoRes = await accountInfoService.getInfo(
@@ -875,7 +1221,7 @@ const validateCheckConvenienceFee = async (req) => {
                     reqPayload
                   );
 
-                  const accountType = getAccountInfo?.hipResponse?.accountType;
+                  const accountType = getAccountInfo?.hipResponse?.AccountType;
 
                   if (!accountType) {
                     throw {
@@ -907,6 +1253,7 @@ const validateBudgetProtect = async (req) => {
     app: { cxsRequest, channel },
     headers,
     secretManager,
+    secret,
   } = req;
 
   const {
@@ -939,8 +1286,18 @@ const validateBudgetProtect = async (req) => {
   if (budgetProtectConfig) {
     const { requestTypeAllowed = [], rate, rateType } = budgetProtectConfig;
 
-    const settlementInformation = settlementInformation?.[0];
-    const requestType = settlementInformation?.requestType;
+    // NOTE: `settlementInformation` lives under `cxsRequest`.
+    // Do NOT redeclare a variable with the same name and read from itself,
+    // otherwise it triggers a temporal-dead-zone ReferenceError.
+    const settlementInfo = cxsRequest?.settlementInformation?.[0];
+    const requestType = settlementInfo?.requestType;
+
+    if (!settlementInfo) {
+      throw {
+        type: 'InvalidRequestValidateException',
+        message: 'The request parameters failed in validation.',
+      };
+    }
 
     const matched = requestTypeAllowed.some((allowedType) =>
       stringUtil.compareLowerCase(allowedType, requestType)
@@ -954,7 +1311,7 @@ const validateBudgetProtect = async (req) => {
     }
 
     let calculatedValue = new Decimal(0);
-    const amount = new Decimal(settlementInformation?.amount || 0);
+    const amount = new Decimal(settlementInfo?.amount || 0);
     const rateDecimal = new Decimal(rate || 0);
 
     if (stringUtil.compareLowerCase(rateType, 'percentage')) {
@@ -1000,7 +1357,7 @@ const validateBudgetProtect = async (req) => {
 
 const validateSettlementAmountDiscount = async (
   settlementInformation,
-  channelConfig,
+  buyLoadChannelConfigRepository,
   req
 ) => {
   const {
@@ -1021,8 +1378,8 @@ const validateSettlementAmountDiscount = async (
 
   let isDiscountAllowed = false;
 
-  if (channelConfig.extendsConfig) {
-    extendsConfig = channelConfig.extendsConfig;
+  if (buyLoadChannelConfigRepository.extendsConfig) {
+    extendsConfig = buyLoadChannelConfigRepository.extendsConfig;
     isDiscountAllowed = extendsConfig.channelDiscountAllowed;
   }
 
@@ -1042,6 +1399,14 @@ const validateSettlementAmountDiscount = async (
       };
     }
   } else {
+    // If there is *no* discount applied (settled == total), we don't need to
+    // resolve discount config from SSM/headers. Legacy code still validated the
+    // equality, but did not require param-store headers in this case.
+    const normalizeMoney = (n) => Number(Number(n || 0).toFixed(2));
+    if (normalizeMoney(amount) === normalizeMoney(totalTransAmount)) {
+      return;
+    }
+
     if (amount > totalTransAmount) {
       logger.error(
         'VALIDATE_SETTLEMENT_DISCOUNT_ERROR',

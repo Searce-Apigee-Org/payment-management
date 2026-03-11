@@ -19,7 +19,7 @@ describe('Service :: GcashHelper :: validateBindingId', () => {
         'user-token':
           'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImViYjk2YjU4ZjVkZGYyYzdkMmU0ZmVjOTJiNWQ4MTg2In0.eyJ1dWlkIjoiYTdkNTUyMTYtZjRmMC00NGY5LWE4YWMtZjk3OTgzN2MyMmMzIiwicmVmcmVzaFRva2VuIjoiYXNkc2FkIiwiYWNjZXNzVG9rZW4iOiJzYWQiLCJpc3MiOiJDWFMiLCJtb2JpbGVOdW1iZXJWZXJpZmljYXRpb25EYXRlIjoiMjAyMy0xMS0wMlQxNDozODowMi41NDMrMDg6MDAiLCJyZWdpc3RyYXRpb25Nb2JpbGVOdW1iZXIiOiIwOTI3MDAxMTkxMCIsImlhdCI6MTc2MTcyODU5OCwiZXhwIjoxNzYxODE0OTk4fQ.nDazaAs4DAdIOhBVA_vCXDUNa1_K7vx3bZWx8ZB37s5DyFBX-XccI2jayo1LnOE5syvkbd8X6BV3_JpJ9UOijA',
       },
-      mongo: {
+      payment: {
         bindingPaymentsRepository: {
           findByBindAndUUID: sinon.stub(),
         },
@@ -54,7 +54,7 @@ describe('Service :: GcashHelper :: validateBindingId', () => {
   });
 
   it('should throw CustomBadRequestMessageException when no binding found', async () => {
-    req.mongo.bindingPaymentsRepository.findByBindAndUUID.resolves(null);
+    req.payment.bindingPaymentsRepository.findByBindAndUUID.resolves(null);
     try {
       await validateBindingId(req, gCashPaymentInfo);
     } catch (error) {
@@ -63,7 +63,7 @@ describe('Service :: GcashHelper :: validateBindingId', () => {
   });
 
   it('should throw CustomBadRequestMessageException when binding found but status not Active', async () => {
-    req.mongo.bindingPaymentsRepository.findByBindAndUUID.resolves({
+    req.payment.bindingPaymentsRepository.findByBindAndUUID.resolves({
       status: 'Inactive',
     });
     try {
@@ -74,7 +74,7 @@ describe('Service :: GcashHelper :: validateBindingId', () => {
   });
 
   it('should return map with bindingId and uuid when binding found and Active', async () => {
-    req.mongo.bindingPaymentsRepository.findByBindAndUUID.resolves({
+    req.payment.bindingPaymentsRepository.findByBindAndUUID.resolves({
       status: 'Active',
     });
 

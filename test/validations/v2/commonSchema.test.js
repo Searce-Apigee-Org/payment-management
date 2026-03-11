@@ -275,36 +275,6 @@ describe('Validation :: commonSchemas', () => {
       ).to.be.true();
     });
 
-    it('should fail for BuyRoaming missing targetDestination or activationDate', () => {
-      const payload = [
-        {
-          transactionType: 'G',
-          requestType: 'BuyRoaming',
-          amount: 100,
-          mobileNumber: '639171234567',
-          transactions: [
-            {
-              amount: 100,
-              serviceId: '123',
-              keyword: 'ROAM10',
-            },
-          ],
-        },
-      ];
-      const { error } = commonSchemas.breakdownSchema.validate(payload, {
-        prefs: { abortEarly: false },
-      });
-      expect(error).to.exist();
-      const messages = error.details.map(
-        (d) => d.context?.message || d.message || ''
-      );
-      expect(
-        messages.some(
-          (m) => m.includes('targetDestination') || m.includes('activationDate')
-        )
-      ).to.be.true();
-    });
-
     it('should fail for transactionType O or S missing transactionProfile', () => {
       const payload = [
         {
@@ -794,6 +764,185 @@ describe('Validation :: commonSchemas', () => {
           )
         )
       ).to.be.true();
+    });
+
+    it('should pass when transactionType S is combined with G', () => {
+      const payload = [
+        {
+          transactionType: 'S',
+          amount: 100,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 100,
+              transactionProfile: {
+                lastName: 'Doe',
+                firstName: 'Jane',
+                email: 'jane@globe.com.ph',
+                dateOfBirth: '1990-01-01',
+              },
+            },
+          ],
+        },
+        {
+          transactionType: 'G',
+          requestType: 'BuyLoad',
+          amount: 50,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 50,
+              keyword: 'LOAD10',
+              serviceId: '1234',
+              wallet: 'A',
+            },
+          ],
+        },
+      ];
+
+      const { error } = commonSchemas.breakdownSchema.validate(payload, {
+        prefs: { abortEarly: false },
+      });
+
+      expect(error).to.not.exist();
+    });
+
+    it('should pass when transactionType S is combined with N', () => {
+      const payload = [
+        {
+          transactionType: 'S',
+          amount: 100,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 100,
+              transactionProfile: {
+                lastName: 'Doe',
+                firstName: 'Jane',
+                email: 'jane@globe.com.ph',
+                dateOfBirth: '1990-01-01',
+              },
+            },
+          ],
+        },
+        {
+          transactionType: 'N',
+          requestType: 'BuyLoad',
+          amount: 50,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 50,
+              keyword: 'LOAD10',
+              serviceId: '1234',
+              wallet: 'A',
+            },
+          ],
+        },
+      ];
+
+      const { error } = commonSchemas.breakdownSchema.validate(payload, {
+        prefs: { abortEarly: false },
+      });
+
+      expect(error).to.not.exist();
+    });
+
+    it('should pass when no S transactionType exists', () => {
+      const payload = [
+        {
+          transactionType: 'G',
+          requestType: 'BuyLoad',
+          amount: 100,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 100,
+              keyword: 'LOAD10',
+              serviceId: '1234',
+              wallet: 'A',
+            },
+          ],
+        },
+        {
+          transactionType: 'O',
+          amount: 200,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 200,
+              transactionProfile: {
+                lastName: 'Smith',
+                firstName: 'John',
+                email: 'john@globe.com.ph',
+                mobileNumber: '639171234567',
+                startDate: '2024-01-01',
+                endDate: '2024-01-05',
+              },
+            },
+          ],
+        },
+      ];
+
+      const { error } = commonSchemas.breakdownSchema.validate(payload, {
+        prefs: { abortEarly: false },
+      });
+
+      expect(error).to.not.exist();
+    });
+
+    it('should pass when only O transactionType exists', () => {
+      const payload = [
+        {
+          transactionType: 'O',
+          amount: 200,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 200,
+              transactionProfile: {
+                lastName: 'Smith',
+                firstName: 'John',
+                email: 'john@globe.com.ph',
+                mobileNumber: '639171234567',
+                startDate: '2024-01-01',
+                endDate: '2024-01-05',
+              },
+            },
+          ],
+        },
+      ];
+
+      const { error } = commonSchemas.breakdownSchema.validate(payload, {
+        prefs: { abortEarly: false },
+      });
+
+      expect(error).to.not.exist();
+    });
+
+    it('should pass when only G transactionType exists', () => {
+      const payload = [
+        {
+          transactionType: 'G',
+          requestType: 'BuyLoad',
+          amount: 100,
+          mobileNumber: '639171234567',
+          transactions: [
+            {
+              amount: 100,
+              keyword: 'LOAD10',
+              serviceId: '1234',
+              wallet: 'A',
+            },
+          ],
+        },
+      ];
+
+      const { error } = commonSchemas.breakdownSchema.validate(payload, {
+        prefs: { abortEarly: false },
+      });
+
+      expect(error).to.not.exist();
     });
   });
 

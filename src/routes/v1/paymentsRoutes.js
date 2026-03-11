@@ -34,9 +34,9 @@ const paymentsRoutes = {
           pre: [{ method: logRequest }, { method: setDefaultFields }],
           response: {
             status: {
-              //   200: v1Validations.balanceInquiryValidations.balanceInquiryResponseSchema.label(
-              //     'CreatePaymentSessionResponse'
-              //   ),
+              201: v1Validations.paymentRequestValidations.paymentSessionResponseSchema.label(
+                'PaymentSessionResponse'
+              ),
               400: utils.errorSchema.badRequestErrorSchema.label(
                 'BadRequestError'
               ),

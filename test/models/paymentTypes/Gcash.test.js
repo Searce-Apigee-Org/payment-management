@@ -76,6 +76,20 @@ describe('Util :: RequestValidator :: GcashValidator :: validateGcashRequest', (
       expect(err.type).to.equal('InvalidParameter');
     }
   });
+
+  it('should treat blank optional strings as valid (legacy behavior)', () => {
+    validPayload.productCode = '';
+    validPayload.subMerchantId = '';
+    validPayload.subMerchantName = '';
+    validPayload.extendedInformation = '';
+    validPayload.bindingRequestID = '';
+
+    const result = validateGcashRequest(validPayload);
+    expect(result).to.exist();
+    // Joi should coerce the empty strings to "empty" (i.e., treat as missing)
+    // but keep them as empty strings in the validated value unless stripped.
+    // The important part is that validation does NOT throw InvalidParameter.
+  });
 });
 
 describe('Util :: RequestValidator :: GcashValidator :: processGcashRequest', () => {
@@ -126,6 +140,7 @@ describe('Util :: RequestValidator :: GcashValidator :: processGcashRequest', ()
   const requestTypes = [
     constants.PAYMENT_REQUEST_TYPES.ECPAY,
     constants.PAYMENT_REQUEST_TYPES.BUY_LOAD,
+    constants.PAYMENT_REQUEST_TYPES.BUY_ROAMING,
     constants.PAYMENT_REQUEST_TYPES.BBPREPAIDPROMO,
     constants.PAYMENT_REQUEST_TYPES.BBPREPAIDREPAIR,
     constants.PAYMENT_REQUEST_TYPES.CHANGE_SIM,
@@ -142,4 +157,14 @@ describe('Util :: RequestValidator :: GcashValidator :: processGcashRequest', ()
       }
     });
   }
+
+  it('should pass BuyRoaming when orderTitle matches valid entity', async () => {
+    settlementInfo.requestType = constants.PAYMENT_REQUEST_TYPES.BUY_ROAMING;
+    validPayload.order.orderTitle = 'SA-BPROMO';
+    mockReq.validationService.validateAccountBrand.resolves('SA-BPROMO');
+
+    await expect(
+      processGcashRequest(validPayload, settlementInfo, mockReq)
+    ).to.not.reject();
+  });
 });

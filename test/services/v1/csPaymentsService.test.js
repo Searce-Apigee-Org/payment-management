@@ -29,7 +29,7 @@ describe('Service :: V1 :: CsPayments :: processCSPayments', () => {
           fetchAccessToken: Sinon.stub(),
         },
       },
-      mongo: {
+      payment: {
         customerPaymentsRepository: {
           findOne: Sinon.stub(),
         },
@@ -77,7 +77,7 @@ describe('Service :: V1 :: CsPayments :: processCSPayments', () => {
       decodedCredentials
     );
     req.tokenStore.csPaymentsRepository.fetchAccessToken.resolves(cachedToken);
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentSession);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentSession);
 
     const gorAccessToken = 'Bearer gor-access-token';
     req.gorTokenService.getOrRefreshAccessToken.resolves(gorAccessToken);
@@ -152,7 +152,7 @@ describe('Service :: V1 :: CsPayments :: processCSPayments', () => {
     });
     req.tokenStore.csPaymentsRepository.fetchAccessToken.resolves(null);
     const settlementDetails = [{ id: 's1' }];
-    req.mongo.customerPaymentsRepository.findOne.resolves({
+    req.payment.customerPaymentsRepository.findOne.resolves({
       settlementDetails,
     });
 

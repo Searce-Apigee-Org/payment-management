@@ -3,6 +3,7 @@ import Lab from '@hapi/lab';
 import Sinon from 'sinon';
 import { config } from '../../../convict/config.js';
 import { getPricing } from '../../../src/repositories/secretManager/oonaRepository.js';
+import { constants, secretUtil } from '../../../src/util/index.js';
 
 const lab = Lab.script();
 const { describe, it, beforeEach, afterEach } = lab;
@@ -12,6 +13,7 @@ export { lab };
 describe('Repository :: SecretManager :: Pricing Repository :: getPricing', () => {
   let secretManagerClient;
   let configGetStub;
+  let expectedSecretName;
 
   beforeEach(() => {
     secretManagerClient = { get: Sinon.stub() };
@@ -20,6 +22,10 @@ describe('Repository :: SecretManager :: Pricing Repository :: getPricing', () =
     configGetStub.withArgs('gcp.secret.prefix').returns('mock-prefix');
     configGetStub.withArgs('gcp.secret.suffix').returns('mock-suffix');
     configGetStub.withArgs('oona.pricing').returns(undefined);
+
+    expectedSecretName = secretUtil.buildSecretName(
+      constants.SECRET_ENTITY.OONA_PRICING
+    );
   });
 
   afterEach(() => {
@@ -33,7 +39,7 @@ describe('Repository :: SecretManager :: Pricing Repository :: getPricing', () =
 
     const result = await getPricing(secretManagerClient);
 
-    expect(result).to.equal(cachedPayload);
+    expect(result).to.equal(JSON.parse(cachedPayload));
     expect(secretManagerClient.get.notCalled).to.be.true();
   });
 
@@ -45,7 +51,12 @@ describe('Repository :: SecretManager :: Pricing Repository :: getPricing', () =
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.type).to.equal('InvalidOutboundRequest');
-      expect(err.details).to.include('secret manager config not found');
+      expect(err.details).to.equal(
+        `'${expectedSecretName}' in secret manager config not found.`
+      );
+      expect(
+        secretManagerClient.get.calledOnceWithExactly(expectedSecretName)
+      ).to.be.true();
     }
   });
 
@@ -54,7 +65,10 @@ describe('Repository :: SecretManager :: Pricing Repository :: getPricing', () =
     secretManagerClient.get.resolves(mockSecret);
 
     const result = await getPricing(secretManagerClient);
-    expect(result).to.equal(Buffer.from(mockSecret, 'base64').toString('utf8'));
+    expect(result).to.equal({ price: 100 });
+    expect(
+      secretManagerClient.get.calledOnceWithExactly(expectedSecretName)
+    ).to.be.true();
   });
 
   it('should rethrow unexpected errors', async () => {
@@ -65,6 +79,9 @@ describe('Repository :: SecretManager :: Pricing Repository :: getPricing', () =
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.message).to.equal('boom');
+      expect(
+        secretManagerClient.get.calledOnceWithExactly(expectedSecretName)
+      ).to.be.true();
     }
   });
 });

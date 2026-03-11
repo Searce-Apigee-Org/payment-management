@@ -79,10 +79,9 @@ const getDetailsByMsisdn = async (req) => {
       BillingArrangementHeader: {
         AccountIdInfo: { AccountNo },
       },
-    } = await hip.interimRepository.getDetailsByMSISDN(
-      { MSISDN: mobileNumber },
-      req
-    );
+    } = await hip.interimRepository.getDetailsByMSISDN(req, {
+      MSISDN: mobileNumber,
+    });
 
     if (SubscriberHeader === '') {
       throw { type: 'InvalidAccount' };

@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/soap+xml; charset=UTF-8"
+    },
+    "bodyFileName": "push-notification-ext-item-response.xml"
+  }
+}

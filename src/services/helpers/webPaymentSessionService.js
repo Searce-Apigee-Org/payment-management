@@ -14,11 +14,11 @@ const createWebPaymentSessionRequest = async (req) => {
     if (uuid) {
       customerInfo.customerId = uuid;
     } else {
-      customerInfo.customerId = payload.customerInfo.customerId;
+      customerInfo.customerId = payload.customerInfo?.customerId;
     }
 
-    if (payload.customerInfo && payload.customerInfo.customerName) {
-      customerInfo.customerName = payload.customerInfo.customerName;
+    if (payload.customerInfo && payload.customerInfo?.customerName) {
+      customerInfo.customerName = payload.customerInfo?.customerName;
     }
 
     payload.settlementInfo.breakdown.forEach((item) => {
@@ -28,10 +28,9 @@ const createWebPaymentSessionRequest = async (req) => {
       };
 
       if (item.transactionType === 'G') {
-        itemToBeAdded.accountId =
-          item.accountId === null || item.accountId === ''
-            ? item.mobileNumber || item.landlineNumber
-            : item.accountId;
+        itemToBeAdded.accountId = !item?.accountId
+          ? item.mobileNumber || item.landlineNumber
+          : item.accountId;
       } else {
         if (item.mobileNumber) {
           itemToBeAdded.mobileNumber = Number(item.mobileNumber.slice(-10));
@@ -56,8 +55,8 @@ const createWebPaymentSessionRequest = async (req) => {
       customerInfos: customerInfo,
       settlementInfos: settlementInfo,
       allowedPaymentMethods: payload.allowedPaymentMethods,
-      ...(successUrl !== null &&
-        failureUrl !== null && {
+      ...(successUrl &&
+        failureUrl && {
           redirectUrls: {
             successUrl,
             failureUrl,
@@ -85,15 +84,9 @@ const createWebPaymentSessionRequest = async (req) => {
 };
 
 // Insert the web payment session to customer-payments table
-const insertWebPaymentSessionToDB = async (params) => {
-  const {
-    principalId,
-    headers,
-    payload,
-    moment,
-    gPayOWebSessionResponse,
-    mongo,
-  } = params;
+const insertWebPaymentSessionToDB = async (req) => {
+  const { principalId, headers, payload, moment, gPayOWebSessionResponse } =
+    req;
 
   logger.debug('START_DB_INSERT', payload);
 
@@ -218,8 +211,7 @@ const insertWebPaymentSessionToDB = async (params) => {
     };
   }
 
-  logger.debug('DB_INPUT', toInsert);
-  await mongo.customerPaymentsRepository.put(toInsert);
+  return JSON.parse(JSON.stringify(toInsert));
 };
 
 export { createWebPaymentSessionRequest, insertWebPaymentSessionToDB };

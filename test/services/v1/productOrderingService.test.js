@@ -12,15 +12,15 @@ const { describe, it, beforeEach, afterEach } = lab;
 
 export { lab };
 
-let mongo;
+let payment;
 let cxs;
 let req;
 
 beforeEach(() => {
-  mongo = {
-    paymentRepository: {
-      findByPaymentId: Sinon.stub(),
-      savePayment: Sinon.stub().resolves({}),
+  payment = {
+    customerPaymentsRepository: {
+      findOne: Sinon.stub(),
+      save: Sinon.stub().resolves({}),
     },
   };
   cxs = {
@@ -32,7 +32,7 @@ beforeEach(() => {
 
   req = {
     payload: { tokenPaymentId: 'ANY123' },
-    mongo,
+    payment,
     cxs,
   };
 
@@ -46,7 +46,7 @@ afterEach(() => {
 describe('Services :: V1 :: productOrderingService :: createPolicy', () => {
   it('should call createPolicy when budgetProtectProfile exists', async () => {
     req.payload.tokenPaymentId = 'ANY123';
-    mongo.paymentRepository.findByPaymentId.resolves({
+    payment.customerPaymentsRepository.findOne.resolves({
       budgetProtectProfile: {},
       settlementDetails: [{ amount: 10 }],
     });
@@ -62,7 +62,7 @@ describe('Services :: V1 :: productOrderingService :: createPolicy', () => {
 
   it('should not call createPolicy when budgetProtectProfile is null', async () => {
     req.payload.tokenPaymentId = 'ANY124';
-    mongo.paymentRepository.findByPaymentId.resolves({
+    payment.customerPaymentsRepository.findOne.resolves({
       budgetProtectProfile: null,
       settlementDetails: [{ amount: 20 }],
     });
@@ -74,7 +74,7 @@ describe('Services :: V1 :: productOrderingService :: createPolicy', () => {
 
   it('should log and rethrow when repository createPolicy rejects', async () => {
     req.payload.tokenPaymentId = 'ANYERR';
-    mongo.paymentRepository.findByPaymentId.resolves({
+    payment.customerPaymentsRepository.findOne.resolves({
       budgetProtectProfile: {},
       settlementDetails: [{ amount: 42 }],
     });
@@ -117,7 +117,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       ],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.resolves({
       status: 200,
       questIndicator: 'Y',
@@ -140,11 +140,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
     expect(typeof requestBody.userToken).to.equal('string');
     expect(requestBody.userToken.length).to.be.greaterThan(0);
 
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-1'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     const txs = saved.settlementDetails[0].transactions;
     expect(txs.every((t) => t.questIndicator === 'Y')).to.be.true();
   });
@@ -159,7 +159,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       ],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.rejects(new Error('downstream'));
 
     await addQuest(req);
@@ -169,11 +169,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       'PRODUCT_ORDERING_SERVICE_PROCESS_SETTLEMENT_DETAILS_ERROR'
     );
 
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-2'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     const txs = saved.settlementDetails[0].transactions;
     expect(txs.every((t) => t.questIndicator === 'N')).to.be.true();
   });
@@ -187,17 +187,17 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       ],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
 
     await addQuest(req);
 
     Sinon.assert.notCalled(cxs.productOrderingRepository.addQuest);
 
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       null
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     const txs = saved.settlementDetails[0].transactions;
     expect(txs.every((t) => t.questIndicator === 'N')).to.be.true();
   });
@@ -212,7 +212,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       ],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.resolves({
       status: 400,
       questIndicator: 'Y',
@@ -221,11 +221,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
     await addQuest(req);
 
     Sinon.assert.calledOnce(cxs.productOrderingRepository.addQuest);
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-3'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     const txs = saved.settlementDetails[0].transactions;
     expect(txs.every((t) => t.questIndicator === 'N')).to.be.true();
   });
@@ -238,7 +238,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       settlementDetails: [{ mobileNumber: '09170000000', transactions: [{}] }],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.resolves({
       status: 200,
       questIndicator: 'Y',
@@ -253,11 +253,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
     expect(requestBody.userToken).to.equal('');
     expect(requestBody.uuid).to.equal('user-4');
 
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-4'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     const txs = saved.settlementDetails[0].transactions;
     expect(txs.every((t) => t.questIndicator === 'Y')).to.be.true();
   });
@@ -269,7 +269,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       userToken: `Bearer ${jwt}`,
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.resolves({
       status: 200,
       questIndicator: 'Y',
@@ -278,8 +278,8 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
     await addQuest(req);
 
     Sinon.assert.notCalled(cxs.productOrderingRepository.addQuest);
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-6'
     );
   });
@@ -292,7 +292,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       settlementDetails: [{ mobileNumber: '09171111111', transactions: null }],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.resolves({
       status: 200,
       questIndicator: 'Y',
@@ -301,11 +301,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
     await addQuest(req);
 
     Sinon.assert.calledOnce(cxs.productOrderingRepository.addQuest);
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-7'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     expect(saved.settlementDetails[0].transactions).to.equal(null);
   });
 
@@ -317,7 +317,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       settlementDetails: [{ mobileNumber: '09172222222', transactions: null }],
     };
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.rejects(new Error('downstream'));
 
     await addQuest(req);
@@ -326,11 +326,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       logger.debug,
       'PRODUCT_ORDERING_SERVICE_PROCESS_SETTLEMENT_DETAILS_ERROR'
     );
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-8'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     expect(saved.settlementDetails[0].transactions).to.equal(null);
   });
 
@@ -351,7 +351,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
       },
     });
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     cxs.productOrderingRepository.addQuest.resolves({
       status: 200,
       questIndicator: 'Y',
@@ -366,11 +366,11 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
     expect(requestBody.userToken).to.equal('');
     expect(requestBody.uuid).to.equal('user-9');
 
-    Sinon.assert.calledOnce(mongo.paymentRepository.savePayment);
-    expect(mongo.paymentRepository.savePayment.firstCall.args[1]).to.equal(
+    Sinon.assert.calledOnce(payment.customerPaymentsRepository.save);
+    expect(payment.customerPaymentsRepository.save.firstCall.args[1]).to.equal(
       'user-9'
     );
-    const saved = mongo.paymentRepository.savePayment.firstCall.args[0];
+    const saved = payment.customerPaymentsRepository.save.firstCall.args[0];
     const txs = saved.settlementDetails[0].transactions;
     expect(txs.every((t) => t.questIndicator === 'Y')).to.be.true();
   });
@@ -378,7 +378,7 @@ describe('Services :: V1 :: productOrderingService :: addQuest', () => {
   it('should log and rethrow on unexpected error (e.g., findByPaymentId rejects)', async () => {
     req.payload.tokenPaymentId = 'GLA-ERR-123';
     const err = new Error('db-fail');
-    mongo.paymentRepository.findByPaymentId.rejects(err);
+    payment.customerPaymentsRepository.findOne.rejects(err);
 
     try {
       await addQuest(req);

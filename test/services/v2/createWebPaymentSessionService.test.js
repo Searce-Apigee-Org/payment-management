@@ -60,9 +60,9 @@ describe('Service :: createWebPaymentSessionService', () => {
       },
       pre: { reqClientId: 'mock-client-id', user: { uuid: 'abc-def' } },
       http: {},
-      mongo: {
+      payment: {
         customerPaymentsRepository: {
-          put: Sinon.stub().resolves({}),
+          create: Sinon.stub().resolves({}),
         },
       },
       serviceHelpers: {

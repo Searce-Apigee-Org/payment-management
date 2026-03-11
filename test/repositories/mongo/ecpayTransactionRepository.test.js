@@ -2,7 +2,10 @@ import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import sinon from 'sinon';
 import { CustomerPaymentECPayModel } from '../../../src/models/mongo/index.js';
-import { findByPartnerRef } from '../../../src/repositories/mongo/ecpayTransactionRepository.js';
+import {
+  create,
+  findByPartnerRef,
+} from '../../../src/repositories/mongo/ecpayTransactionRepository.js';
 
 const lab = Lab.script();
 const { describe, it, beforeEach, afterEach } = lab;
@@ -45,6 +48,54 @@ describe('Repository :: Mongo :: CustomerPaymentECPay Repository :: findByPartne
     } catch (err) {
       expect(err.type).to.equal('InternalOperationFailed');
       expect(err.details).to.equal('DB query failed');
+    }
+  });
+});
+
+describe('Repository :: Mongo :: CustomerPaymentECPay Repository :: create', () => {
+  let createStub;
+
+  beforeEach(() => {
+    createStub = sinon.stub(CustomerPaymentECPayModel, 'create');
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should create and return record when create succeeds', async () => {
+    const transactionDetails = {
+      partnerReferenceNumber: 'REF456',
+      amount: 1000,
+      status: 'PENDING',
+    };
+
+    const mockData = { ...transactionDetails, _id: 'mongo-id-1' };
+
+    createStub.resolves(mockData);
+
+    const result = await create(transactionDetails);
+
+    expect(result).to.equal(mockData);
+    expect(createStub.calledOnce).to.be.true();
+    expect(createStub.firstCall.args[0]).to.equal(transactionDetails);
+  });
+
+  it('should throw InternalOperationFailed when create fails', async () => {
+    const transactionDetails = {
+      partnerReferenceNumber: 'ERR_CREATE',
+      amount: 500,
+      status: 'PENDING',
+    };
+
+    createStub.rejects(new Error('Create failed'));
+
+    try {
+      await create(transactionDetails);
+      throw new Error('Expected failure but succeeded');
+    } catch (err) {
+      expect(err.type).to.equal('InternalOperationFailed');
+      expect(err.details).to.equal('Create failed');
     }
   });
 });

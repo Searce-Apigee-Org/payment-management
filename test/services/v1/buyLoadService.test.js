@@ -43,15 +43,9 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
         handleRefundProcess: Sinon.stub(),
       },
       refund: {},
-      mongo: {
-        buyLoadTransactionsRepository: {
-          save: Sinon.stub().resolves({ success: true }),
-          findByTransactionId: Sinon.stub().resolves({
-            some: 'buyload-entity',
-          }),
-        },
-        paymentRepository: {
-          findByPaymentId: Sinon.stub().resolves({
+      payment: {
+        customerPaymentsRepository: {
+          findOne: Sinon.stub().resolves({
             userToken: 'Bearer abc.def.ghi',
             deviceId: 'device-123',
             settlementDetails: [
@@ -60,6 +54,14 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
                 transactions: [{ transactionId: 'TRANS-1' }],
               },
             ],
+          }),
+        },
+      },
+      transactions: {
+        buyLoadTransactionsRepository: {
+          save: Sinon.stub().resolves({ success: true }),
+          findOne: Sinon.stub().resolves({
+            some: 'buyload-entity',
           }),
         },
       },
@@ -86,7 +88,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     req.oneApiService.useVoucher.resolves({});
 
     const buyloadEntityObj = { some: 'buyload-entity' };
-    req.mongo.buyLoadTransactionsRepository.findByTransactionId.resolves(
+    req.transactions.buyLoadTransactionsRepository.findOne.resolves(
       buyloadEntityObj
     );
 
@@ -116,10 +118,12 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     expect(updateArgs[1]).to.equal('SUCCESS');
     expect(updateArgs[2]).to.equal('AMAX-TX-1');
 
-    Sinon.assert.calledOnce(req.mongo.buyLoadTransactionsRepository.save);
+    Sinon.assert.calledOnce(
+      req.transactions.buyLoadTransactionsRepository.save
+    );
 
     const savedArg =
-      req.mongo.buyLoadTransactionsRepository.save.firstCall.args[0];
+      req.transactions.buyLoadTransactionsRepository.save.firstCall.args[0];
     expect(savedArg.tokenPaymentId).to.equal(req.payload.tokenPaymentId);
     expect(savedArg.transactionId).to.equal('AMAX-TX-1');
     expect(savedArg.amount).to.equal(100);
@@ -133,7 +137,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     expect(savedArg.createdDate).to.be.a.string();
 
     Sinon.assert.calledWithExactly(
-      req.mongo.buyLoadTransactionsRepository.findByTransactionId,
+      req.transactions.buyLoadTransactionsRepository.findOne,
       'TRANS-1'
     );
 
@@ -158,7 +162,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     req.oneApiService.useVoucher.resolves({});
 
     const buyloadEntityObj = { some: 'buyload-entity' };
-    req.mongo.buyLoadTransactionsRepository.findByTransactionId.resolves(
+    req.transactions.buyLoadTransactionsRepository.findOne.resolves(
       buyloadEntityObj
     );
 
@@ -168,7 +172,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     expect(res.statusCode).to.equal(201);
 
     const savedArg =
-      req.mongo.buyLoadTransactionsRepository.save.firstCall.args[0];
+      req.transactions.buyLoadTransactionsRepository.save.firstCall.args[0];
     expect(savedArg.keyword).to.equal(null);
     expect(savedArg.wallet).to.equal(null);
 
@@ -206,19 +210,22 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
       expect(updateArgs[0]).to.equal(req);
       expect(updateArgs[1]).to.equal('FAILED');
       expect(updateArgs[2]).to.be.a.string();
-      Sinon.assert.calledOnce(req.mongo.buyLoadTransactionsRepository.save);
+      Sinon.assert.calledOnce(
+        req.transactions.buyLoadTransactionsRepository.save
+      );
 
       const savedArg =
-        req.mongo.buyLoadTransactionsRepository.save.firstCall.args[0];
+        req.transactions.buyLoadTransactionsRepository.save.firstCall.args[0];
       expect(savedArg.status).to.equal('FAILED');
       expect(savedArg.transactionId).to.be.a.string();
 
       Sinon.assert.calledWithMatch(logger.debug, 'API_BUY_LOAD_ERROR');
 
-      Sinon.assert.calledTwice(req.mongo.paymentRepository.findByPaymentId);
+      Sinon.assert.calledTwice(req.payment.customerPaymentsRepository.findOne);
       Sinon.assert.calledWithExactly(
-        req.mongo.paymentRepository.findByPaymentId,
-        req.payload.tokenPaymentId
+        req.payment.customerPaymentsRepository.findOne,
+        req.payload.tokenPaymentId,
+        req
       );
     }
   });
@@ -236,10 +243,11 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     Sinon.assert.notCalled(req.productOrderingService.addQuest);
     Sinon.assert.notCalled(req.oneApiService.useVoucher);
 
-    Sinon.assert.calledTwice(req.mongo.paymentRepository.findByPaymentId);
-    Sinon.assert.calledWithExactly(
-      req.mongo.paymentRepository.findByPaymentId,
-      req.payload.tokenPaymentId
+    Sinon.assert.calledTwice(req.payment.customerPaymentsRepository.findOne);
+    Sinon.assert.alwaysCalledWithExactly(
+      req.payment.customerPaymentsRepository.findOne,
+      req.payload.tokenPaymentId,
+      req
     );
 
     Sinon.assert.calledOnce(req.paymentService.updateOnBuyLoad);
@@ -248,9 +256,11 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     expect(updateArgs[1]).to.equal('SUCCESS');
     expect(updateArgs[2]).to.be.a.string();
 
-    Sinon.assert.calledOnce(req.mongo.buyLoadTransactionsRepository.save);
+    Sinon.assert.calledOnce(
+      req.transactions.buyLoadTransactionsRepository.save
+    );
     const savedArg =
-      req.mongo.buyLoadTransactionsRepository.save.firstCall.args[0];
+      req.transactions.buyLoadTransactionsRepository.save.firstCall.args[0];
     expect(savedArg.status).to.equal('SUCCESS');
     expect(savedArg.transactionId).to.be.a.string();
     expect(updateArgs[2]).to.equal(savedArg.transactionId);
@@ -264,14 +274,14 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     const paymentEntityRef = {
       settlementDetails: undefined,
     };
-    req.mongo.paymentRepository.findByPaymentId.resolves(paymentEntityRef);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentEntityRef);
 
     req.productOrderingService.createPolicy.resolves({});
     req.productOrderingService.addQuest.resolves({});
     req.oneApiService.useVoucher.resolves({});
 
     const buyloadEntityObj = { some: 'buyload-entity' };
-    req.mongo.buyLoadTransactionsRepository.findByTransactionId.resolves(
+    req.transactions.buyLoadTransactionsRepository.findOne.resolves(
       buyloadEntityObj
     );
 
@@ -281,7 +291,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     expect(res.statusCode).to.equal(201);
 
     Sinon.assert.notCalled(
-      req.mongo.buyLoadTransactionsRepository.findByTransactionId
+      req.transactions.buyLoadTransactionsRepository.findOne
     );
 
     expect(paymentEntityRef.settlementDetails).to.equal({});
@@ -296,7 +306,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
       transactionId: 'AMAX-TX-4',
     });
 
-    req.mongo.paymentRepository.findByPaymentId.resolves({
+    req.payment.customerPaymentsRepository.findOne.resolves({
       userToken: 'Bearer token',
       deviceId: 'dev-1',
       settlementDetails: [
@@ -312,7 +322,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     req.oneApiService.useVoucher.resolves({});
 
     const buyloadEntityObj = { some: 'buyload-entity' };
-    req.mongo.buyLoadTransactionsRepository.findByTransactionId.resolves(
+    req.transactions.buyLoadTransactionsRepository.findOne.resolves(
       buyloadEntityObj
     );
 
@@ -322,7 +332,7 @@ describe('Service :: V1 :: buyLoadService :: buyLoad', () => {
     expect(res.statusCode).to.equal(201);
 
     Sinon.assert.calledWithExactly(
-      req.mongo.buyLoadTransactionsRepository.findByTransactionId,
+      req.transactions.buyLoadTransactionsRepository.findOne,
       'TRANS-2'
     );
 

@@ -8,6 +8,7 @@ services:
     ports:
       - '8080:8080'
     depends_on:
+      - localstack
       - mongo
       - wiremock
       - redis
@@ -23,7 +24,7 @@ services:
 
   mongo:
     image: mongo:latest
-    container_name: fake-mongo
+    container_name: fake-mongo-payment-management
     ports:
       - '27017:27017'
     networks:
@@ -33,7 +34,7 @@ services:
 
   mongo-seed:
     image: mongo:latest
-    container_name: fake-mongo-seed
+    container_name: fake-mongo-seed-payment-management
     depends_on:
       - mongo
     volumes:
@@ -42,9 +43,45 @@ services:
     networks:
       - app-network
 
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express-payment-management
+    depends_on:
+      - mongo
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo # host of the DB container
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH_USERNAME: admin # optional auth
+      ME_CONFIG_BASICAUTH_PASSWORD: adminpass
+    ports:
+      - '8082:8081' # UI available at http://localhost:8082
+    networks:
+      - app-network
+
+  localstack:
+    image: localstack/localstack
+    container_name: localstack-payment-management
+    ports:
+      - '4566:4566'
+      - '4510-4559:4510-4559'
+    environment:
+      - SERVICES=dynamodb
+      - DEFAULT_REGION=us-east-1
+      - EDGE_PORT=4566
+      - AWS_ACCESS_KEY_ID=dummy-access-key-id
+      - AWS_SECRET_ACCESS_KEY=dummy-secret-access-key
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - './localstack_data:/var/lib/localstack'
+      - './mocks/seeds:/seeds'
+
+    networks:
+      - app-network
+
   wiremock:
     image: wiremock/wiremock:latest
-    container_name: wiremock
+    container_name: wiremock-payment-management
     volumes:
       - ./mocks/wiremock/mappings:/home/wiremock/mappings
       - ./mocks/wiremock/__files:/home/wiremock/__files
@@ -54,7 +91,7 @@ services:
 
   redis:
     image: docker.io/redis:latest
-    container_name: redis
+    container_name: redis-payment-management
     ports:
       - '6379:6379'
     volumes:
@@ -65,7 +102,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  mongodata:
-    external: true

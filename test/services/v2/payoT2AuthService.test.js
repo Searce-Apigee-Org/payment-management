@@ -1,6 +1,7 @@
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Sinon from 'sinon';
+import { config } from '../../../convict/config.js';
 import { retrieveGPayOAccessToken } from '../../../src/services/v2/payoT2AuthService.js';
 
 const lab = Lab.script();
@@ -53,10 +54,8 @@ describe('Service :: paymentServiceAuth :: retrieveGPayOAccessToken', () => {
 
   it('should return cached access token if valid', async () => {
     const mockTokenObject = {
-      accessToken: {
-        accessToken: 'cached-token',
-        accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600, // still valid
-      },
+      accessToken: 'cached-token',
+      expiresIn: Math.floor(Date.now() / 1000) + 3600, // still valid
     };
 
     reqMock.tokenStore.tokenRepository.getPaymentServiceToken.resolves(
@@ -90,8 +89,7 @@ describe('Service :: paymentServiceAuth :: retrieveGPayOAccessToken', () => {
 
     expect(token).to.equal('new-access-token');
     expect(
-      reqMock.secretManager.paymentServiceRepository
-        .getPaymentServiceCredentials.calledOnce
+      reqMock.secretManager.paymentServiceRepository.get.calledOnce
     ).to.be.true();
     expect(
       reqMock.payoT2.paymentServiceRepository.getAccessTokenT2.calledOnce
@@ -101,10 +99,8 @@ describe('Service :: paymentServiceAuth :: retrieveGPayOAccessToken', () => {
 
   it('should fetch new token if cached one is expired', async () => {
     const mockTokenObject = {
-      accessToken: {
-        accessToken: 'expired-token',
-        accessTokenExpiresAt: Math.floor(Date.now() / 1000) - 10, // expired
-      },
+      accessToken: 'expired-token',
+      expiresIn: Math.floor(Date.now() / 1000) - 10, // expired
     };
     reqMock.tokenStore.tokenRepository.getPaymentServiceToken.resolves(
       mockTokenObject
@@ -121,8 +117,7 @@ describe('Service :: paymentServiceAuth :: retrieveGPayOAccessToken', () => {
 
     expect(result).to.equal('new-access-token');
     expect(
-      reqMock.secretManager.paymentServiceRepository
-        .getPaymentServiceCredentials.calledOnce
+      reqMock.secretManager.paymentServiceRepository.get.calledOnce
     ).to.be.true();
     // No assertion for putPaymentServiceToken.calledOnce since implementation does not call it
   });
@@ -142,14 +137,14 @@ describe('Service :: paymentServiceAuth :: retrieveGPayOAccessToken', () => {
     ).to.be.false();
   });
 
-  it('should use dnoClientId for BBPrepaidPromo and NG1 channel', async () => {
+  it('should use dno.clientId for BBPrepaidPromo and NG1 channel', async () => {
     // Mock config.get
-    global.config = { get: Sinon.stub().returns('dno-client-id') };
+    Sinon.stub(config, 'get').withArgs('dno.clientId').returns('dno-client-id');
     reqMock.payload.settlementInfo.breakdown = [
       { requestType: 'BBPrepaidPromo' },
     ];
     reqMock.app.channel = 'superapp'; // constants.CHANNELS.NG1
-    reqMock.secretManager.paymentServiceRepository.getPaymentServiceCredentials.resolves(
+    reqMock.secretManager.paymentServiceRepository.get.resolves(
       '{"dno-client-id": "clientDNO:secretDNO"}'
     );
     reqMock.payoT2.paymentServiceRepository.getAccessTokenT2.resolves({
@@ -160,8 +155,8 @@ describe('Service :: paymentServiceAuth :: retrieveGPayOAccessToken', () => {
     reqMock.tokenStore.tokenRepository.getPaymentServiceToken.resolves(null);
 
     const result = await retrieveGPayOAccessToken(reqMock);
-    expect(global.config.get.calledOnceWith('dnoClientId')).to.be.true();
+    expect(config.get.calledOnceWith('dno.clientId')).to.be.true();
     expect(result).to.equal('dno-token');
-    delete global.config;
+    config.get.restore();
   });
 });

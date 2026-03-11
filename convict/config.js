@@ -15,13 +15,31 @@ convict.addFormat({
     try {
       return JSON.parse(val)['payment-management'];
     } catch {
-      throw new Error('dynamo.migratedTables should be of type object');
+      throw new Error('dyamo.migratedTables should be of type object');
     }
   },
   validate: (val) => {
     if (!Array.isArray(val)) {
       throw new Error(
         `dynamo.migratedTables['payment-management'] should be of type Array`
+      );
+    }
+  },
+});
+
+convict.addFormat({
+  name: 'MigratedLambdaArray',
+  coerce: (val) => {
+    try {
+      return JSON.parse(val)['payment-management'];
+    } catch {
+      throw new Error('lambda.migratedLambdas should be of type object');
+    }
+  },
+  validate: (val) => {
+    if (!Array.isArray(val)) {
+      throw new Error(
+        `lambda.migratedLambdas['payment-management'] should be of type Array`
       );
     }
   },
@@ -58,6 +76,44 @@ const config = convict({
   },
 
   dynamo: {
+    tables: {
+      customerPayment: {
+        doc: 'DynamoDB CustomerPayments table',
+        format: String,
+        default: null,
+        env: 'CXS_DYNAMO_CUSTOMER_PAYMENTS_TABLE_NAME',
+      },
+      buyLoadTransactions: {
+        doc: 'DynamoDB BuyLoadTransactions table',
+        format: String,
+        default: null,
+        env: 'CXS_DYNAMO_BUY_LOAD_TRANSACTIONS_TABLE_NAME',
+      },
+      buyLoadChannelConfig: {
+        doc: 'DynamoDB BuyLoad Channel Config table',
+        format: String,
+        default: null,
+        env: 'CXS_DYNAMO_BUY_LOAD_CHANNEL_CONFIG_TABLE_NAME',
+      },
+      customerPaymentECPay: {
+        doc: 'DynamoDB CustomerPaymentECPay table',
+        format: String,
+        default: null,
+        env: 'CXS_DYNAMO_ECPAY_TRANSACTION_TABLE_NAME',
+      },
+      bindingPaymentMethods: {
+        doc: 'DynamoDB CustomerPaymentMethods table',
+        format: String,
+        default: null,
+        env: 'CXS_DYNAMO_BINDING_PAYMENT_METHODS_TABLE_NAME',
+      },
+      enrolledAccounts: {
+        doc: 'DynamoDB CustomerPaymentMethods table',
+        format: String,
+        default: null,
+        env: 'CXS_DYNAMO_ENROLLED_ACCOUNTS_TABLE_NAME',
+      },
+    },
     migratedTables: {
       format: 'MigratedTablesArray',
       default: [],
@@ -202,14 +258,14 @@ const config = convict({
       env: 'PAYMENT_WEBSERVICE_HOST',
     },
     endpoints: {
-      accessToken: {
+      paymentAccessToken: {
         doc: 'Payment Access Token Endpoint',
         format: String,
         default: null,
         nullable: false,
         env: 'PAYMENT_ACCESS_TOKEN_ENDPOINT',
       },
-      esimSession: {
+      paymentEsimSession: {
         doc: 'eSIM Session Endpoint',
         format: String,
         default: null,
@@ -311,6 +367,29 @@ const config = convict({
         nullable: false,
         env: 'PAYO_SERVICE_PAYMENTS_ENDPOINT',
       },
+      commandNames: {
+        xenditRefund: {
+          doc: 'PAYO XENDIT Refund Command Name',
+          format: String,
+          default: null,
+          nullable: false,
+          env: 'PAYO_XENDIT_REFUND',
+        },
+        gcashRefund: {
+          doc: 'PAYO GCash Refund Command Name',
+          format: String,
+          default: null,
+          nullable: false,
+          env: 'PAYO_GCASH_REFUND',
+        },
+        defaultRefund: {
+          doc: 'PAYO Default Refund Command Name',
+          format: String,
+          default: null,
+          nullable: false,
+          env: 'PAYO_DEFAULT_REFUND',
+        },
+      },
     },
   },
 
@@ -353,6 +432,12 @@ const config = convict({
         env: 'GOR_PAYMENT_TOKEN_ID_ENDPOINT',
       },
     },
+    clientId: {
+      doc: 'GOR Client ID',
+      format: String,
+      default: null,
+      env: 'GOR_CLIENT_ID',
+    },
   },
 
   gcp: {
@@ -378,6 +463,61 @@ const config = convict({
         env: 'SECRET_SUFFIX',
       },
     },
+    protocol: {
+      doc: 'GCP Protocol',
+      format: String,
+      default: 'https',
+      env: 'GCP_PROTOCOL',
+    },
+    host: {
+      doc: 'GCP Host',
+      format: String,
+      default: null,
+      env: 'GCP_HOST',
+    },
+    authorization: {
+      doc: 'GCP Authorization Credentials',
+      format: String,
+      default: null,
+      env: 'GCP_AUTHORIZATION',
+    },
+    retryConfig: {
+      maxAttempts: {
+        doc: 'GCP Retry Max Attempts',
+        format: 'nat',
+        default: 3,
+        env: 'GCP_RETRY_MAX_ATTEMPTS',
+      },
+      delay: {
+        doc: 'GCP Retry Delay',
+        format: 'nat',
+        default: 300,
+        env: 'GCP_RETRY_DELAY',
+      },
+    },
+    endpoints: {
+      generateOauthToken: {
+        doc: 'GCP Generate Oauth Token Endpoint',
+        format: String,
+        default: null,
+        env: 'GCP_GENERATE_OAUTH_TOKEN_ENDPOINT',
+      },
+      paymentStatusCallback: {
+        doc: 'GCP Payment Status Callback Endpoint',
+        format: String,
+        default: null,
+        env: 'GCP_PAYMENT_STATUS_CALLBACK_ENDPOINT',
+      },
+    },
+    pubsub: {
+      audience: {
+        doc: 'The expected audience for GPUBSUB auth header',
+        format: Array,
+        default: '',
+        env: 'PUBSUB_AUDIENCE',
+        coerce: (val) => val.split(','),
+      },
+    },
   },
 
   hip: {
@@ -401,6 +541,13 @@ const config = convict({
         nullable: false,
         default: null,
         env: 'HIP_INTERIM_ENDPOINT',
+      },
+      billingEndpoint: {
+        doc: 'HIP Billing Endpoint',
+        format: String,
+        nullable: false,
+        default: null,
+        env: 'HIP_BILLING_ENDPOINT',
       },
     },
     requestTimeout: {
@@ -450,6 +597,15 @@ const config = convict({
       default: null,
       nullable: false,
       env: 'GCS_PAYMENTS_BUCKET',
+    },
+  },
+
+  promoEligibility: {
+    policy: {
+      doc: 'Policy for handling promo rows that require eligibility validation (mm includes "1"). PERMISSIVE allows and logs; FAIL_CLOSED rejects.',
+      format: ['PERMISSIVE', 'FAIL_CLOSED'],
+      default: 'PERMISSIVE',
+      env: 'PROMO_ELIGIBILITY_POLICY',
     },
   },
 
@@ -701,6 +857,13 @@ const config = convict({
           nullable: false,
           env: 'CXS_PAYMENT_METHODS_BUY_VOUCHER_ENDPOINT',
         },
+        createPromoVouchers: {
+          doc: 'Create Promo Vouchers Endpoint',
+          format: String,
+          default: null,
+          nullable: false,
+          env: 'CXS_PAYMENT_METHODS_CREATE_PROMO_VOUCHERS_ENDPOINT',
+        },
       },
     },
     partnersEcpay: {
@@ -850,12 +1013,277 @@ const config = convict({
       env: 'OONA_PRICING',
     },
   },
+
   singlife: {
     pricing: {
       doc: 'The Singlife Pricing',
       format: String,
       default: null,
       env: 'SINGLIFE_PRICING',
+    },
+  },
+
+  globeOnline: {
+    protocol: {
+      doc: 'Globe Online Protocol',
+      format: String,
+      default: 'https',
+      env: 'GLOBEONLINE_PROTOCOL',
+    },
+    host: {
+      doc: 'Globe Online Host',
+      format: String,
+      default: null,
+      env: 'GLOBEONLINE_HOST',
+    },
+    endpoints: {
+      paymentStatusCallback: {
+        doc: 'Globe Online Payment Status Callback Endpoint',
+        format: String,
+        default: null,
+        env: 'GLOBEONLINE_PAYMENT_STATUS_CALLBACK_ENDPOINT',
+      },
+    },
+    authorization: {
+      doc: 'Globe Online Authorization Credentials',
+      format: String,
+      default: null,
+      env: 'GLOBEONLINE_AUTHORIZATION',
+    },
+    retryConfig: {
+      maxAttempts: {
+        doc: 'Globe Online Retry Max Attempts',
+        format: 'nat',
+        default: 3,
+        env: 'GLOBEONLINE_RETRY_MAX_ATTEMPTS',
+      },
+      delay: {
+        doc: 'Globe Online Retry Delay',
+        format: 'nat',
+        default: 300,
+        env: 'GLOBEONLINE_RETRY_DELAY',
+      },
+    },
+  },
+
+  lambda: {
+    migratedLambdas: {
+      format: 'MigratedLambdaArray',
+      default: [],
+      env: 'MIGRATED_LAMBDAS',
+    },
+    region: {
+      doc: 'The region for the Lambda',
+      format: String,
+      default: null,
+      env: 'AWS_REGION',
+    },
+    addAccountQuest: {
+      name: {
+        doc: 'Add Account Quest Lambda Name',
+        format: String,
+        default: null,
+        env: 'ADD_ACCOUNT_QUEST_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Add Account Quest Lambda ARN',
+        format: String,
+        default: null,
+        env: 'ADD_ACCOUNT_QUEST_LAMBDA_ARN',
+      },
+    },
+    paymentStatusCallback: {
+      name: {
+        doc: 'Payment Status Callback Lambda Name',
+        format: String,
+        default: null,
+        env: 'PAYMENT_STATUS_CALLBACK_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Payment Status Callback Lambda ARN',
+        format: String,
+        default: null,
+        env: 'PAYMENT_STATUS_CALLBACK_LAMBDA_ARN',
+      },
+    },
+    paymentSendEmail: {
+      name: {
+        doc: 'Payment Send Email Lambda Name',
+        format: String,
+        default: null,
+        env: 'PAYMENT_SEND_EMAIL_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Payment Send Email Lambda ARN',
+        format: String,
+        default: null,
+        env: 'PAYMENT_SEND_EMAIL_LAMBDA_ARN',
+      },
+    },
+    processCSPayment: {
+      name: {
+        doc: 'Process CSPayment Lambda Name',
+        format: String,
+        default: null,
+        env: 'PROCESS_CSPAYMENT_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Process CSPayment Lambda ARN',
+        format: String,
+        default: null,
+        env: 'PROCESS_CSPAYMENT_LAMBDA_ARN',
+      },
+    },
+    buyLoad: {
+      name: {
+        doc: 'Buy Load Lambda Name',
+        format: String,
+        default: null,
+        env: 'BUY_LOAD_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Buy Load Lambda ARN',
+        format: String,
+        default: null,
+        env: 'BUY_LOAD_LAMBDA_ARN',
+      },
+      resource: {
+        doc: 'Buy Load Lambda Resource Path',
+        format: String,
+        default: null,
+        env: 'BUY_LOAD_LAMBDA_RESOURCE_PATH',
+      },
+    },
+    purchasePromo: {
+      name: {
+        doc: 'Purchase Promo Lambda Name',
+        format: String,
+        default: null,
+        env: 'PURCHASE_PROMO_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Purchase Promo Lambda ARN',
+        format: String,
+        default: null,
+        env: 'PURCHASE_PROMO_LAMBDA_ARN',
+      },
+      path: {
+        doc: 'Purchase Promo Lambda Path',
+        format: String,
+        default: null,
+        env: 'PURCHASE_PROMO_LAMBDA_PATH',
+      },
+    },
+    createPromoVouchers: {
+      name: {
+        doc: 'Create Promo Vouchers Lambda Name',
+        format: String,
+        default: null,
+        env: 'CREATE_PROMO_VOUCHERS_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Create Promo Vouchers Lambda ARN',
+        format: String,
+        default: null,
+        env: 'CREATE_PROMO_VOUCHERS_LAMBDA_ARN',
+      },
+    },
+    ecPayProcessTransaction: {
+      name: {
+        doc: 'ECPay Process Transaction Lambda Name',
+        format: String,
+        default: null,
+        env: 'ECPAY_PROCESS_TRANSACTION_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'ECPay Process Transaction Lambda ARN',
+        format: String,
+        default: null,
+        env: 'ECPAY_PROCESS_TRANSACTION_LAMBDA_ARN',
+      },
+    },
+    prepaidFiberServiceOrders: {
+      name: {
+        doc: 'Prepaid Fiber Service Orders Lambda Name',
+        format: String,
+        default: null,
+        env: 'PREPAID_FIBER_SERVICE_ORDERS_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Prepaid Fiber Service Orders Lambda ARN',
+        format: String,
+        default: null,
+        env: 'PREPAID_FIBER_SERVICE_ORDERS_LAMBDA_ARN',
+      },
+      path: {
+        doc: 'Prepaid Fiber Service Orders Lambda Path',
+        format: String,
+        default: null,
+        env: 'PREPAID_FIBER_SERVICE_ORDERS_LAMBDA_PATH',
+      },
+    },
+    prepaidFiberRepairOrders: {
+      name: {
+        doc: 'Prepaid Fiber Repair Orders Lambda Name',
+        format: String,
+        default: null,
+        env: 'PREPAID_FIBER_REPAIR_ORDERS_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Prepaid Fiber Repair Orders Lambda ARN',
+        format: String,
+        default: null,
+        env: 'PREPAID_FIBER_REPAIR_ORDERS_LAMBDA_ARN',
+      },
+      path: {
+        doc: 'Prepaid Fiber Repair Orders Lambda Path',
+        format: String,
+        default: null,
+        env: 'PREPAID_FIBER_REPAIR_ORDERS_LAMBDA_PATH',
+      },
+    },
+    createPolicy: {
+      name: {
+        doc: 'Create Policy Lambda Name',
+        format: String,
+        default: null,
+        env: 'CREATE_POLICY_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Create Policy Lambda ARN',
+        format: String,
+        default: null,
+        env: 'CREATE_POLICY_LAMBDA_ARN',
+      },
+    },
+    loyaltyPointsSimulator: {
+      name: {
+        doc: 'Loyalty Points Simulator Lambda Name',
+        format: String,
+        default: null,
+        env: 'LOYALTY_POINTS_SIMULATOR_LAMBDA_NAME',
+      },
+      arn: {
+        doc: 'Loyalty Points Simulator Lambda ARN',
+        format: String,
+        default: null,
+        env: 'LOYALTY_POINTS_SIMULATOR_LAMBDA_ARN',
+      },
+    },
+  },
+
+  raven: {
+    url: {
+      doc: 'Raven Downstream UURL',
+      format: String,
+      default: null,
+      env: 'RAVEN_DOWNSTREAM_URL',
+    },
+    timeout: {
+      doc: 'Raven Downstream Timeout',
+      format: Number,
+      default: 30000,
+      env: 'RAVEN_DOWNSTREAM_TIMEOUT',
     },
   },
 });

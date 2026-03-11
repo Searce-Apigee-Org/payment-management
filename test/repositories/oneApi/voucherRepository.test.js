@@ -55,7 +55,7 @@ describe('Repository :: OneAPI Repository :: getVoucherData', () => {
 
 describe('Repository :: OneApi :: voucherRepository :: updateVoucher', () => {
   const oneApiCfg = config.get('oneApi');
-  const expectedUrl = `${oneApiCfg.httpProtocol}://${oneApiCfg.webServiceHost}/${oneApiCfg.endpoints.useVoucher}`;
+  const expectedUrl = `${oneApiCfg.httpProtocol}://${oneApiCfg.host}/${oneApiCfg.endpoints.useVoucher}`;
   const expectedOptions = {
     headers: {
       Authorization: oneApiCfg.accessToken,

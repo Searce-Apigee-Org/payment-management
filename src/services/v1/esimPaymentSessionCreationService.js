@@ -218,7 +218,8 @@ const createEsimPaymentSession = async (req) => {
       ...(headers['user-token'] && { userToken: headers['user-token'] }),
     };
 
-    await mongo.customerPaymentsRepository.put(record);
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    await payment.customerPaymentsRepository.put(record);
 
     dataDictionary.setDataDictionary(req, {
       event_detail: { response_parameters: { result } },

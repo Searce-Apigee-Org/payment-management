@@ -1,5 +1,6 @@
 import { dataDictionary } from '@globetel/cxs-core/core/index.js';
 import { logger } from '@globetel/cxs-core/core/logger/index.js';
+import { config } from '../../../convict/config.js';
 import { constants, paymentsUtil, xenditUtil } from '../../util/index.js';
 
 const requestPaymentRefund = async (req) => {
@@ -9,10 +10,11 @@ const requestPaymentRefund = async (req) => {
       payload,
       headers,
       paymentRefundHelper,
-      mongo,
+      payoT2AuthService,
       payment,
       http,
       payo,
+      payoT2,
     } = req;
 
     // set variable for kafka parameters
@@ -20,40 +22,59 @@ const requestPaymentRefund = async (req) => {
       episode: constants.EPISODES.PAY,
     });
 
-    const { Item: paymentSessionInfo } =
-      await mongo.customerPaymentsRepository.find({
-        tokenPaymentId,
-      });
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    const paymentSessionInfo = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
 
     logger.info('FIND_CUSTOMER_PAYMENT_RESPONSE', paymentSessionInfo);
 
-    const channelId = paymentSessionInfo.channelId;
-    const paymentType = (paymentSessionInfo.paymentType || '').toUpperCase();
+    const channelId = paymentSessionInfo?.channelId;
+    const paymentType = (paymentSessionInfo?.paymentType || '').toUpperCase();
 
     let accessToken;
     let header;
     let requestBody;
 
-    // Default refund payload
-    requestBody = {
-      command: {
-        name: 'CreateRefundSession',
-        payload: {
-          tokenPaymentId,
-          refundAmount: payload.refundAmount,
-        },
-      },
-    };
+    const {
+      xenditRefund: xenditRefundCommand,
+      gcashRefund: gcashRefundCommand,
+      defaultRefund: defaultRefundCommand,
+    } = config.get('payo.paymentService.commandNames');
 
     // Xendit-specific payload
-    if (xenditUtil.isXenditPayment(paymentSessionInfo.paymentType)) {
+    if (xenditUtil.isXenditPayment(paymentSessionInfo?.paymentType)) {
       requestBody = {
         command: {
-          name: 'XenditRefundSession',
+          name: xenditRefundCommand,
           payload: {
-            tokenPaymentId,
+            paymentId: tokenPaymentId,
             amount: payload.refundAmount,
             reason: 'CANCELLATION',
+          },
+        },
+      };
+    } else if (
+      paymentSessionInfo?.paymentType === constants.PAYMENT_TYPES.GCASH
+    ) {
+      requestBody = {
+        command: {
+          name: gcashRefundCommand,
+          payload: {
+            paymentId: tokenPaymentId,
+            refundAmount: payload.refundAmount,
+          },
+        },
+      };
+    } else {
+      // Default refund payload
+      requestBody = {
+        command: {
+          name: defaultRefundCommand,
+          payload: {
+            paymentId: tokenPaymentId,
+            refundAmount: payload.refundAmount,
           },
         },
       };
@@ -63,10 +84,12 @@ const requestPaymentRefund = async (req) => {
 
     //TOKEN RETRIEVAL AND REFUND REQUEST FOR T1 PAYMENT TYPES
     if (paymentRefundHelper.isT1PaymentType(paymentType)) {
+      logger.info('INITIATE_T1_REFUND_FLOW', { paymentType });
       accessToken = await paymentRefundHelper.retrievePaymentServiceAccessToken(
         req,
         channelId
       );
+      logger.info('PAYMENT_SERVICE_ACCESS_TOKEN', { accessToken });
       header = { Authorization: `Bearer ${accessToken}` };
       logger.info('ACCESS_TOKEN_HEADER', header);
 
@@ -76,9 +99,10 @@ const requestPaymentRefund = async (req) => {
         header
       );
     }
-    //TOKEN RETRIEVAL AND REFUND REQUEST FOR GPayO PAYMENT TYPE
+    //TOKEN RETRIEVAL AND REFUND REQUEST FOR GPayO T2 PAYMENT TYPE
     else {
-      accessToken = await paymentRefundHelper.retrieveGPayOAccessToken(
+      logger.info('INITIATE_GPAYO_T2_REFUND_FLOW', { paymentType });
+      accessToken = await payoT2AuthService.retrieveGPayOAccessToken(
         req,
         channelId
       );
@@ -90,15 +114,15 @@ const requestPaymentRefund = async (req) => {
         amount: payload.refundAmount,
         reason: constants.PAYO.REASONS,
       };
-      result = await payo.paymentServiceRepository.requestRefundByTokenId(
+      result = await payoT2.paymentServiceRepository.requestRefundByTokenIdT2(
         http,
         gpayoRequest,
         header
       );
     }
 
-    if (paymentSessionInfo.deviceId) {
-      headers.deviceid = paymentSessionInfo.deviceId;
+    if (paymentSessionInfo?.deviceId) {
+      headers.deviceid = paymentSessionInfo?.deviceId;
     }
 
     dataDictionary.setDataDictionary(req, {
@@ -123,7 +147,7 @@ const requestPaymentRefund = async (req) => {
 
     return { statusCode: 202 };
   } catch (err) {
-    logger.error('REQUEST_PAYMENT_REFUND_ERROR', err);
+    logger.debug('REQUEST_PAYMENT_REFUND_ERROR', err);
     throw err;
   }
 };

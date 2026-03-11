@@ -66,6 +66,7 @@ const paymentSessionCallbackRequestSchema = {
         refundAmount: Joi.string().pattern(/\S/),
         status: Joi.string().pattern(/\S/),
         actions: Joi.array(),
+        description: Joi.string(),
       })
         .unknown(false)
 
@@ -79,7 +80,8 @@ const paymentSessionCallbackRequestSchema = {
           'transactionId',
           'refundAmount',
           'status',
-          'actions'
+          'actions',
+          'description'
         )
         .required(),
     })

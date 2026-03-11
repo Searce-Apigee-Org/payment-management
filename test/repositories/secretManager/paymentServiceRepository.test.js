@@ -6,6 +6,7 @@ import {
   get,
   getGcashProcessingFee,
   getInitVoucher,
+  getPaymentAutoRefundConfig,
   getPaymentServiceCredentials,
   getRefundAuthToken,
   getUpdateVoucherAuthToken,
@@ -111,7 +112,9 @@ describe('Repository :: SecretManager :: Payment Service Repository :: getInitVo
       'v1',
       '00010'
     );
-    expect(result).to.equal('init-token');
+    // getInitVoucher returns the *full decoded JSON* so callers can access
+    // multiple config keys (e.g., VOUCHER_AUTH_TOKEN, max discount limits, etc.)
+    expect(result).to.equal(decodedPayload);
   });
 
   it('should rethrow unexpected errors', async () => {
@@ -218,6 +221,58 @@ describe('Repository :: SecretManager :: Payment Service Repository :: getGcashP
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.message).to.equal('panic');
+    }
+  });
+});
+
+describe('Repository :: SecretManager :: Payment Service Repository :: getPaymentAutoRefundConfig', () => {
+  let secretManagerClient;
+  let configGetStub;
+
+  beforeEach(() => {
+    secretManagerClient = { get: Sinon.stub() };
+    configGetStub = Sinon.stub(config, 'get');
+    configGetStub.withArgs('gcp.projectID').returns('mock-project');
+    configGetStub.withArgs('gcp.secret.prefix').returns('mock-prefix');
+    configGetStub.withArgs('gcp.secret.suffix').returns('mock-suffix');
+  });
+
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should throw InvalidOutboundRequest when secret is missing', async () => {
+    secretManagerClient.get.resolves(null);
+
+    try {
+      await getPaymentAutoRefundConfig(secretManagerClient);
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('InvalidOutboundRequest');
+      expect(err.details).to.include('secret manager config not found');
+    }
+  });
+
+  it('should return decoded config when found', async () => {
+    const decodedPayload = { channels: [{ prefix: 'GLA', products: [] }] };
+    const b64Secret = Buffer.from(
+      JSON.stringify(decodedPayload),
+      'utf8'
+    ).toString('base64');
+    secretManagerClient.get.resolves(b64Secret);
+
+    const result = await getPaymentAutoRefundConfig(secretManagerClient);
+    expect(result).to.equal(decodedPayload);
+  });
+
+  it('should rethrow unexpected errors', async () => {
+    secretManagerClient.get.rejects(new Error('boom'));
+
+    try {
+      await getPaymentAutoRefundConfig(secretManagerClient);
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.message).to.equal('boom');
     }
   });
 });

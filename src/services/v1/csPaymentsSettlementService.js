@@ -5,19 +5,27 @@ import { constants, csPaymentsUtil } from '../../util/index.js';
 const updateSettlementDetails = async (req, settlementDetail, index) => {
   const {
     payload: { tokenPaymentId },
-    mongo,
+    payment,
   } = req;
   try {
-    const keys = {
-      filter: { tokenPaymentId },
-      update: {
-        $set: {
-          [`settlementDetails.${index}`]: settlementDetail,
-        },
-      },
-    };
+    const existingPayment = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
 
-    await mongo.customerPaymentsRepository.update(keys);
+    if (!existingPayment) {
+      throw new Error(`Payment not found: ${tokenPaymentId}`);
+    }
+
+    // Update the settlementDetails array
+    const updatedPayment = {
+      ...existingPayment,
+      settlementDetails: existingPayment.settlementDetails || [],
+    };
+    updatedPayment.settlementDetails[index] = settlementDetail;
+
+    // Persist the updated payment entity
+    await payment.customerPaymentsRepository.updateOne(updatedPayment, req);
   } catch (err) {
     logger.debug('UPDATE_SETTLEMENT_DETAILS_ERROR', err);
     throw err;

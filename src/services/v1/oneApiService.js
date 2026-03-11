@@ -3,15 +3,17 @@ import { constants } from '../../util/index.js';
 
 const useVoucher = async (req) => {
   const {
-    mongo,
     oneApi,
     payload: { tokenPaymentId },
     secretManager,
     secretManagerClient,
+    payment,
   } = req;
   try {
-    const payments =
-      await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+    const payments = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
 
     const accessToken =
       await secretManager.paymentServiceRepository.getUpdateVoucherAuthToken(

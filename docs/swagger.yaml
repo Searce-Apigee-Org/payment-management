@@ -241,6 +241,84 @@ paths:
           schema:
             $ref: '#/definitions/InternalServerError'
           description: Internal Server Error
+  /v1/paymentManagement/internal/payment-auto-refund:
+    post:
+      summary: This API handles auto refund for eligible transactions.
+      operationId: postV1PaymentmanagementInternalPaymentautorefund
+      parameters:
+        - type: string
+          name: authorization
+          in: header
+          required: true
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/Model1'
+      tags:
+        - v1
+      responses:
+        '201':
+          schema:
+            $ref: '#/definitions/PaymentAutoRefundResponse'
+          description: Created
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/internal/paymentStatusCallback:
+    post:
+      summary: >-
+        This API is for receiving updates on the customer’s payment status
+        details from CXS to Magento/GCP.
+      operationId: postV1PaymentmanagementInternalPaymentstatuscallback
+      parameters:
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/PaymentStatusCallbackRequestPayload'
+      tags:
+        - v1
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PaymentStatusCallbackResponse'
+          description: Successful
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
   /v1/paymentManagement/payments/sessions:
     post:
       summary: >-
@@ -264,10 +342,14 @@ paths:
         - in: body
           name: body
           schema:
-            $ref: '#/definitions/Model2'
+            $ref: '#/definitions/Model3'
       tags:
         - v1
       responses:
+        '201':
+          schema:
+            $ref: '#/definitions/PaymentSessionResponse'
+          description: Created
         '400':
           schema:
             $ref: '#/definitions/BadRequestError'
@@ -451,7 +533,7 @@ paths:
         - in: body
           name: body
           schema:
-            $ref: '#/definitions/Model10'
+            $ref: '#/definitions/Model13'
       tags:
         - v1
       responses:
@@ -459,6 +541,54 @@ paths:
           schema:
             $ref: '#/definitions/PaymentSessionCallbackResponse'
           description: Successful
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v1/paymentManagement/payments/{tokenPaymentId}/refund:
+    post:
+      summary: This API will call Refund API directly from PayO to process GCash refund
+      operationId: postV1PaymentmanagementPaymentsTokenpaymentidRefund
+      parameters:
+        - type: string
+          x-convert:
+            trim: true
+          name: authorization
+          in: header
+          required: false
+        - type: string
+          x-convert:
+            trim: true
+          name: tokenPaymentId
+          in: path
+          required: true
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/Model14'
+      tags:
+        - v1
+      responses:
+        '201':
+          schema:
+            $ref: '#/definitions/RequestRefundPaymentResponse'
+          description: Created
         '400':
           schema:
             $ref: '#/definitions/BadRequestError'
@@ -707,11 +837,11 @@ definitions:
     type: object
     properties:
       convenienceFeeAmount:
-        type: string
+        type: number
       postedAmount:
-        type: string
+        type: number
       paymentAmount:
-        type: string
+        type: number
       convenienceFeeType:
         type: string
     required:
@@ -722,6 +852,27 @@ definitions:
     type: array
     items:
       $ref: '#/definitions/PaymentDetailModel'
+  VoucherModel:
+    type: object
+    properties:
+      serialNumber:
+        type: string
+      voucherCode:
+        type: string
+      voucherDescription:
+        type: string
+      contentPartner:
+        type: string
+      paidAmount:
+        type: string
+      validFrom:
+        type: string
+      validTo:
+        type: string
+  VoucherArray:
+    type: array
+    items:
+      $ref: '#/definitions/VoucherModel'
   TransactionModel:
     type: object
     properties:
@@ -735,8 +886,27 @@ definitions:
         type: string
       questIndicator:
         type: string
+      param:
+        type: string
+      serviceId:
+        type: string
+      wallet:
+        type: string
+      agentName:
+        type: string
+      externalTransactionId:
+        type: string
+      serviceNumber:
+        type: string
+      voucherCategory:
+        type: string
+      voucherDetails:
+        $ref: '#/definitions/VoucherArray'
+      partnerReferenceNumber:
+        type: string
     required:
       - transactionId
+      - partnerReferenceNumber
   TransactionsArray:
     type: array
     items:
@@ -795,7 +965,7 @@ definitions:
       accountType:
         type: string
       amount:
-        type: string
+        type: number
     required:
       - status
   AccountsArray:
@@ -832,6 +1002,8 @@ definitions:
     type: array
     items:
       $ref: '#/definitions/OonaModel'
+  actions:
+    type: object
   GetPaymentSessionResultModel:
     type: object
     properties:
@@ -859,6 +1031,10 @@ definitions:
         type: string
       oona:
         $ref: '#/definitions/OonaArray'
+      paymentId:
+        type: string
+      actions:
+        $ref: '#/definitions/actions'
     required:
       - tokenPaymentId
       - paymentSession
@@ -905,6 +1081,131 @@ definitions:
       - paymentChannel
   ProcessCSPaymentsResponse:
     type: object
+  message:
+    type: object
+    properties:
+      data:
+        type: string
+        example: >-
+          W3sidG9rZW5QYXltZW50SWQiOiJMT0MwMDAxMjMiLCJwYXltZW50SW5mb3JtYXRpb24iOiJ7XCJ0eXBlXCI6XCJESVJFQ1RfREVCSVRcIixcImNoYW5uZWxDb2RlXCI6XCJBQkNcIn0iLCJwYXltZW50VHlwZSI6IlhFTkRJVCIsInNldHRsZW1lbnREZXRhaWxzIjpbeyJyZXF1ZXN0VHlwZSI6IkJ1eUVTSU1Mb2NhbCIsImFtb3VudCI6MTAwLCJzdGF0dXMiOiJYRU5ESVRfQVVUSE9SSVNFRCIsInRyYW5zYWN0aW9ucyI6W3sicHJvdmlzaW9uU3RhdHVzIjoiRkFJTEVEIn1dLCJlbWFpbEFkZHJlc3MiOiJleGFtcGxlQGVtYWlsLmNvbSJ9XX1d
+        x-convert:
+          trim: true
+      messageId:
+        type: string
+        x-convert:
+          trim: true
+      message_id:
+        type: string
+        x-convert:
+          trim: true
+      publishTime:
+        type: string
+        x-convert:
+          trim: true
+      publish_time:
+        type: string
+        x-convert:
+          trim: true
+    required:
+      - data
+      - messageId
+      - message_id
+      - publishTime
+      - publish_time
+  Model1:
+    type: object
+    properties:
+      message:
+        $ref: '#/definitions/message'
+      subscription:
+        type: string
+        x-convert:
+          trim: true
+    required:
+      - subscription
+  result:
+    type: object
+    properties:
+      statusCode:
+        type: number
+        enum:
+          - 200
+    required:
+      - statusCode
+  PaymentAutoRefundResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/result'
+    required:
+      - result
+  PaymentAccountObject:
+    type: object
+    properties:
+      paymentStatus:
+        type: string
+      accountNumber:
+        type: string
+    required:
+      - paymentStatus
+  PaymentAccountsModel:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/PaymentAccountObject'
+  InstallmentDetailsModel:
+    type: object
+    properties:
+      bank:
+        type: string
+      term:
+        type: integer
+      interval:
+        type: string
+      percentage:
+        type: number
+        minimum: 0
+      cardType:
+        type: string
+      cardBrand:
+        type: string
+    required:
+      - bank
+      - term
+      - interval
+  PaymentStatusCallbackRequestPayload:
+    type: object
+    properties:
+      tokenPaymentId:
+        type: string
+      channelId:
+        type: string
+      paymentStatusRemarks:
+        type: string
+      paymentAccounts:
+        $ref: '#/definitions/PaymentAccountsModel'
+      installmentDetails:
+        $ref: '#/definitions/InstallmentDetailsModel'
+    required:
+      - tokenPaymentId
+      - paymentAccounts
+  PaymentStatusCallbackResultModel:
+    type: object
+    properties:
+      status:
+        type: boolean
+      message:
+        type: string
+    required:
+      - status
+      - message
+  PaymentStatusCallbackResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/PaymentStatusCallbackResultModel'
+    required:
+      - result
   paymentType:
     type: string
     enum:
@@ -946,7 +1247,7 @@ definitions:
     items:
       type: string
       pattern: \S
-  Model1:
+  Model2:
     type: object
     properties:
       firstName:
@@ -961,7 +1262,7 @@ definitions:
   members:
     type: array
     items:
-      $ref: '#/definitions/Model1'
+      $ref: '#/definitions/Model2'
   metadata:
     type: object
     properties:
@@ -979,7 +1280,7 @@ definitions:
         pattern: \S
       mobileNumber:
         type: string
-        pattern: ^(9|09|639)[0-9]{9}$
+        pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
       startDate:
         type: string
         format: date-time
@@ -1001,7 +1302,7 @@ definitions:
         pattern: ^[0-9]+$
       mobileNumber:
         type: string
-        pattern: ^(9|09|639)[0-9]{9}$
+        pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
       emailAddress:
         type: string
       amount:
@@ -1066,7 +1367,7 @@ definitions:
       - firstName
       - dateOfBirth
       - email
-  Model2:
+  Model3:
     type: object
     properties:
       paymentType:
@@ -1091,6 +1392,26 @@ definitions:
       - countryCode
       - paymentInformation
       - settlementInformation
+  pointsEarned:
+    type: array
+    items:
+      type: string
+  Model4:
+    type: object
+    properties:
+      tokenPaymentId:
+        type: string
+      pointsEarned:
+        $ref: '#/definitions/pointsEarned'
+    required:
+      - tokenPaymentId
+  PaymentSessionResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/Model4'
+    required:
+      - result
   BuyLoadPayloadModel:
     type: object
     properties:
@@ -1123,7 +1444,7 @@ definitions:
         type: string
         x-convert:
           trim: true
-  Model3:
+  Model5:
     type: string
     enum:
       - G
@@ -1181,7 +1502,7 @@ definitions:
       - lastName
       - firstName
       - email
-  Model4:
+  Model6:
     type: object
     properties:
       amount:
@@ -1211,12 +1532,12 @@ definitions:
         pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$
       targetDestination:
         type: string
-  Model5:
+  Model7:
     type: array
     minItems: 1
     items:
-      $ref: '#/definitions/Model4'
-  Model6:
+      $ref: '#/definitions/Model6'
+  Model8:
     type: object
     properties:
       accountId:
@@ -1239,13 +1560,13 @@ definitions:
       amount:
         type: number
       transactionType:
-        $ref: '#/definitions/Model3'
+        $ref: '#/definitions/Model5'
       requestType:
         $ref: '#/definitions/requestType'
       createOrderExternal:
         type: string
       transactions:
-        $ref: '#/definitions/Model5'
+        $ref: '#/definitions/Model7'
     required:
       - transactionType
       - createOrderExternal
@@ -1254,7 +1575,7 @@ definitions:
     type: array
     minItems: 1
     items:
-      $ref: '#/definitions/Model6'
+      $ref: '#/definitions/Model8'
   settlementInfo:
     type: object
     properties:
@@ -1262,7 +1583,7 @@ definitions:
         $ref: '#/definitions/breakdown'
     required:
       - breakdown
-  Model7:
+  Model9:
     type: string
     enum:
       - OTC_ECPAY
@@ -1271,7 +1592,7 @@ definitions:
   allowedPaymentMethods:
     type: array
     items:
-      $ref: '#/definitions/Model7'
+      $ref: '#/definitions/Model9'
   notificationUrls:
     type: object
     properties:
@@ -1542,7 +1863,7 @@ definitions:
         $ref: '#/definitions/CreateEsimPaymentSessionResultModel'
     required:
       - result
-  Model8:
+  Model10:
     type: object
     properties:
       accountNumber:
@@ -1562,7 +1883,7 @@ definitions:
     type: array
     minItems: 1
     items:
-      $ref: '#/definitions/Model8'
+      $ref: '#/definitions/Model10'
   paymentMethods:
     type: array
     items:
@@ -1571,7 +1892,7 @@ definitions:
     type: array
     items:
       type: string
-  actions:
+  Model11:
     type: array
     items:
       type: string
@@ -1615,10 +1936,12 @@ definitions:
         type: string
         pattern: \S
       actions:
-        $ref: '#/definitions/actions'
+        $ref: '#/definitions/Model11'
+      description:
+        type: string
     required:
       - paymentId
-  Model9:
+  Model12:
     type: object
     properties:
       name:
@@ -1629,11 +1952,11 @@ definitions:
     required:
       - name
       - payload
-  Model10:
+  Model13:
     type: object
     properties:
       notification:
-        $ref: '#/definitions/Model9'
+        $ref: '#/definitions/Model12'
     required:
       - notification
   PaymentSessionCallbackResultModel:
@@ -1648,6 +1971,32 @@ definitions:
     properties:
       result:
         $ref: '#/definitions/PaymentSessionCallbackResultModel'
+    required:
+      - result
+  Model14:
+    type: object
+    properties:
+      refundAmount:
+        type: number
+        x-constraint:
+          precision: 2
+          sign: positive
+    required:
+      - refundAmount
+  RequestPaymentRefundResultModel:
+    type: object
+    properties:
+      statusCode:
+        type: number
+        enum:
+          - 202
+    required:
+      - statusCode
+  RequestRefundPaymentResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/RequestPaymentRefundResultModel'
     required:
       - result
 x-alt-definitions:

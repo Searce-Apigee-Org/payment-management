@@ -8,7 +8,7 @@ const processBuyVoucherAsync = async (req, payload) => {
     const {
       host,
       httpProtocol,
-      endpoints: { buyVoucher: endpoint },
+      endpoints: { createPromoVouchers: endpoint },
     } = config.get('cxs.paymentMethods');
 
     const url = `${httpProtocol}://${host}/${endpoint}`;

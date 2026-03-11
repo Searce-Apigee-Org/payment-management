@@ -1,6 +1,9 @@
+import { logger } from '@globetel/cxs-core/core/logger/index.js';
+
 const validateOonaSku = (type, metadata) => {
   switch (type.toLowerCase()) {
     case 'oonacomptravel':
+      logger.debug('VALIDATE_OonaSku', type.toLowerCase());
       return validateOonaCompTravel(metadata);
     case 'oonasmartdelay':
       return validateOonaSmartDelay(metadata);
@@ -13,7 +16,9 @@ const validateOonaSku = (type, metadata) => {
 };
 
 const validateOonaCompTravel = (metadata) => {
+  logger.debug('VALIDATE_OONA_CompTravel', metadata);
   if (!metadata) {
+    logger.debug('VALIDATE_OONA_CompTravel_NOT_METADATA', metadata);
     throw {
       type: 'MissingParameterValidateException',
       message: 'INSUFFICIENT_PARAMETER',
@@ -31,7 +36,11 @@ const validateOonaCompTravel = (metadata) => {
 
   for (const field of requiredFields) {
     const value = metadata[field];
-    if (typeof value !== 'string' || value.trim() === '') {
+    if (
+      (typeof value !== 'string' && !(value instanceof Date)) ||
+      (typeof value === 'string' && value.trim() === '')
+    ) {
+      logger.debug('VALIDATE_OONA_CompTravel_requiredFields', field);
       throw {
         type: 'MissingParameterValidateException',
         message: 'INSUFFICIENT_PARAMETER',
@@ -92,6 +101,9 @@ const applyOonaCompTravelPricing = ({
     !compTravelNode.pricing ||
     typeof compTravelNode.pricing.net !== 'number'
   ) {
+    logger.debug('VALIDATE_OONA_PRICING', skuIdentifier);
+    logger.debug('VALIDATE_OONA_PRICING', pricingData);
+    logger.debug('VALIDATE_OONA_PRICING', oonaPromosKey);
     throw {
       type: 'MissingParameterValidateException',
       message: 'Oona pricing for service id not found.',

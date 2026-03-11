@@ -43,10 +43,10 @@ describe('Service :: V1 :: paymentService :: updateOnBuyLoad', () => {
 
     req = {
       payload: { tokenPaymentId: 'TPID-1' },
-      mongo: {
-        paymentRepository: {
-          findByPaymentId: Sinon.stub().resolves(paymentEntity),
-          savePayment: Sinon.stub().resolves({ success: true }),
+      payment: {
+        customerPaymentsRepository: {
+          findOne: Sinon.stub().resolves(paymentEntity),
+          save: Sinon.stub().resolves({ success: true }),
         },
       },
     };
@@ -70,12 +70,16 @@ describe('Service :: V1 :: paymentService :: updateOnBuyLoad', () => {
 
     expect(paymentEntity.settlementDetails[0].provisionedAmount).to.equal(15);
 
-    Sinon.assert.calledOnce(req.mongo.paymentRepository.savePayment);
-    const [savedEntity, userUuid] =
-      req.mongo.paymentRepository.savePayment.firstCall.args;
-    expect(savedEntity).to.shallow.equal(paymentEntity);
-    expect(typeof savedEntity.lastUpdatedDate).to.equal('string');
+    Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
+    const [tokenPaymentId, userUuid, reqArg] =
+      req.payment.customerPaymentsRepository.save.firstCall.args;
+
+    expect(tokenPaymentId).to.equal('TPID-1');
     expect(userUuid).to.equal('uuid-1');
+    expect(reqArg).to.equal(req);
+
+    // Verify the paymentEntity was modified correctly
+    expect(typeof paymentEntity.lastUpdatedDate).to.equal('string');
   });
 
   it('should not set provisionedAmount when provisionStatus is FAILED', async () => {
@@ -84,12 +88,12 @@ describe('Service :: V1 :: paymentService :: updateOnBuyLoad', () => {
     expect(paymentEntity.settlementDetails[0].provisionedAmount).to.equal(
       undefined
     );
-    Sinon.assert.calledOnce(req.mongo.paymentRepository.savePayment);
+    Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.save);
   });
 
   it('should log and rethrow when findByPaymentId rejects', async () => {
     const boom = new Error('db fail');
-    req.mongo.paymentRepository.findByPaymentId.rejects(boom);
+    req.payment.customerPaymentsRepository.findOne.rejects(boom);
 
     try {
       await updateOnBuyLoad(req, constants.STATUS.SUCCESS, 'AMAX-TX-3');
@@ -101,7 +105,7 @@ describe('Service :: V1 :: paymentService :: updateOnBuyLoad', () => {
         'PAYMENT_SERVICE_UPDATE_ON_BUYLOAD_ERROR',
         boom
       );
-      Sinon.assert.notCalled(req.mongo.paymentRepository.savePayment);
+      Sinon.assert.notCalled(req.payment.customerPaymentsRepository.save);
     }
   });
 });

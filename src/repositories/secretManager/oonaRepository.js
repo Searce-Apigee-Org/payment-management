@@ -10,7 +10,9 @@ const getPricing = async (secretManagerClient) => {
   try {
     const cachedPricing = config.get('oona.pricing');
     if (cachedPricing) {
-      return decodeB64(cachedPricing);
+      logger.debug('cachedPricing', decodeB64(cachedPricing));
+      const decodedCachedPricing = decodeB64(cachedPricing);
+      return JSON.parse(decodedCachedPricing);
     }
 
     const secret = await secretManagerClient.get(secretName);
@@ -22,7 +24,8 @@ const getPricing = async (secretManagerClient) => {
     }
 
     logger.info(`Secret name is ${secretName}`);
-    return decodeB64(secret);
+    const decodedSecret = decodeB64(secret);
+    return JSON.parse(decodedSecret);
   } catch (error) {
     logger.debug('SECRET_MANAGER_GET_FAILED', error);
     throw error;

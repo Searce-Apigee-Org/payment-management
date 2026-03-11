@@ -179,18 +179,15 @@ describe('Util :: dataDictionaryUtil :: initializeBuyLoadDataDictionary', () => 
 });
 
 describe('Util :: dataDictionaryUtil :: finalizeBuyLoadDataDictionary', () => {
+  let req;
+  let paymentEntity;
+  let buyLoadEntity;
+
   beforeEach(() => {
     Sinon.restore();
-  });
 
-  afterEach(() => {
-    Sinon.restore();
-  });
-
-  it('should build the final buyload data dictionary using payment + buyload mongo records', async () => {
-    const paymentEntity = {
+    paymentEntity = {
       tokenPaymentId: 'TPID-1',
-      // keep these empty/invalid so buyLoadUtil decoding stays deterministic in unit tests
       userToken: '',
       deviceId: '',
       settlementDetails: [
@@ -201,21 +198,45 @@ describe('Util :: dataDictionaryUtil :: finalizeBuyLoadDataDictionary', () => {
       ],
     };
 
-    const buyLoadEntity = { transactionId: 'TXN-1', foo: 'bar' };
+    buyLoadEntity = { transactionId: 'TXN-1', foo: 'bar' };
 
-    const req = {
+    req = {
       app: {},
-      mongo: {
-        paymentRepository: {
-          findByPaymentId: Sinon.stub().resolves(paymentEntity),
+      payment: {
+        customerPaymentsRepository: {
+          findOne: Sinon.stub().resolves(paymentEntity),
         },
+      },
+      transactions: {
         buyLoadTransactionsRepository: {
-          findByTransactionId: Sinon.stub().resolves(buyLoadEntity),
+          findOne: Sinon.stub().resolves(buyLoadEntity),
         },
       },
     };
+  });
 
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should build the final buyload data dictionary using payment + buyload mongo records', async () => {
     await finalizeBuyLoadDataDictionary(req, 'TPID-1');
+
+    // Verify the repositories were called correctly
+    Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.findOne);
+    Sinon.assert.calledWithExactly(
+      req.payment.customerPaymentsRepository.findOne,
+      'TPID-1',
+      req
+    );
+
+    Sinon.assert.calledOnce(
+      req.transactions.buyLoadTransactionsRepository.findOne
+    );
+    Sinon.assert.calledWithExactly(
+      req.transactions.buyLoadTransactionsRepository.findOne,
+      'TXN-1'
+    );
 
     // NOTE: finalizeBuyLoadDataDictionary mutates paymentEntity.settlementDetails to a sanitized object
     expect(req.app.dataDictionary).to.equal({
@@ -249,30 +270,29 @@ describe('Util :: dataDictionaryUtil :: finalizeBuyLoadDataDictionary', () => {
   });
 
   it('should default buyload_entity/result to empty object when no transactionId exists on the payment', async () => {
-    const paymentEntity = {
+    const paymentEntityNoTxn = {
       tokenPaymentId: 'TPID-2',
       userToken: '',
       deviceId: '',
       settlementDetails: [{ provisionedAmount: null, transactions: [{}] }],
     };
 
-    const findByTransactionId = Sinon.stub().resolves({ transactionId: 'X' });
-
-    const req = {
-      app: {},
-      mongo: {
-        paymentRepository: {
-          findByPaymentId: Sinon.stub().resolves(paymentEntity),
-        },
-        buyLoadTransactionsRepository: {
-          findByTransactionId,
-        },
-      },
-    };
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentEntityNoTxn);
 
     await finalizeBuyLoadDataDictionary(req, 'TPID-2');
 
-    expect(findByTransactionId.called).to.be.false();
+    Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.findOne);
+    Sinon.assert.calledWithExactly(
+      req.payment.customerPaymentsRepository.findOne,
+      'TPID-2',
+      req
+    );
+
+    // Should NOT call findOne on transactions repository since there's no transactionId
+    Sinon.assert.notCalled(
+      req.transactions.buyLoadTransactionsRepository.findOne
+    );
+
     expect(req.app.dataDictionary.event_detail.result).to.equal({
       provisioned_amount: '',
     });

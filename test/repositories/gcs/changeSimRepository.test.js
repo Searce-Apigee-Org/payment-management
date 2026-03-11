@@ -27,8 +27,12 @@ describe('Repository :: GCS :: ChangeSim Repository :: getResult', () => {
     const req = {
       server: { plugins: { gcsPlugin: { gcsClient: gcsClientStub } } },
       app: { principalId: 'testPrincipal' },
+      headers: {
+        authorization:
+          'Bearer eyJhbGciOiJIUzI1NiJ9.eyJjbGllbnRfaWQiOiJDTElFTlQxMjMifQ.sig',
+      },
     };
-    const fileSuffix = '-changesim.xlsx';
+    const fileSuffix = '_ChangeSim.csv';
 
     const fakeExcelBuffer = Buffer.from('fake-binary-data');
     gcsClientStub.downloadFile.resolves(fakeExcelBuffer);
@@ -49,6 +53,10 @@ describe('Repository :: GCS :: ChangeSim Repository :: getResult', () => {
     const result = await getResult(req, fileSuffix);
 
     expect(gcsClientStub.downloadFile.calledOnce).to.be.true();
+
+    const callArgs = gcsClientStub.downloadFile.getCall(0).args[0];
+    expect(callArgs.fileName).to.equal('CLIENT123_ChangeSim.csv');
+
     expect(xlsxParseStub.calledOnce).to.be.true();
     expect(result).to.be.an.array();
     expect(result).to.have.length(2);
@@ -72,7 +80,7 @@ describe('Repository :: GCS :: ChangeSim Repository :: getResult', () => {
     gcsClientStub.downloadFile.rejects(new Error('Failed to download file'));
 
     try {
-      await getResult(req, '-changesim.xlsx');
+      await getResult(req, '_ChangeSim.csv');
       throw new Error('Expected failure but succeeded');
     } catch (err) {
       expect(err).to.be.instanceOf(Error);

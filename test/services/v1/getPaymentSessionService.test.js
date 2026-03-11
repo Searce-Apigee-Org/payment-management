@@ -22,7 +22,7 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
     reqMock = {
       headers: { deviceid: 'device-123' },
       params: { tokenPaymentId: 'token-123' },
-      mongo: {
+      payment: {
         customerPaymentsRepository: {
           findOne: Sinon.stub(),
         },
@@ -36,7 +36,7 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
       app: { dataDictionary: {} },
     };
 
-    findOneStub = reqMock.mongo.customerPaymentsRepository.findOne;
+    findOneStub = reqMock.payment.customerPaymentsRepository.findOne;
     checkQuestIndicatorStub = reqMock.questIndicatorService.checkQuestIndicator;
     handleLoyaltyPointsStub = reqMock.paymentLoyaltyService.handleLoyaltyPoints;
   });
@@ -68,6 +68,25 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
     }
   });
 
+  it('should pass tokenPaymentId from req.params to repository findOne', async () => {
+    Sinon.stub(config, 'get').withArgs('nodeEnv').returns('production');
+
+    reqMock.params.tokenPaymentId = 'GLA-PARAM-123';
+    const paymentDetails = {
+      tokenPaymentId: 'GLA-PARAM-123',
+      settlementDetails: [],
+      headers: {},
+    };
+    findOneStub.resolves(paymentDetails);
+    handleLoyaltyPointsStub.callsFake(
+      async (_req, _paymentDetails, _clientName, response) => response
+    );
+
+    await getPaymentSessionService.getPaymentSession(reqMock);
+
+    Sinon.assert.calledWith(findOneStub, 'GLA-PARAM-123', reqMock);
+  });
+
   it('should not call questIndicatorService in production', async () => {
     Sinon.stub(config, 'get').withArgs('nodeEnv').returns('production');
 
@@ -77,10 +96,25 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
         {
           requestType: constants.PAYMENT_REQUEST_TYPES.PAY_BILLS,
           statusRemarks: 'OK',
+          status: 'PROCESSING',
+          transactions: [
+            {
+              amount: 0,
+              keyword: 'LD',
+              provisionStatus: 'PROCESSING',
+            },
+          ],
         },
       ],
     };
     findOneStub.resolves(paymentDetails);
+
+    // Ensure loyalty handler does not throw in this scenario
+    handleLoyaltyPointsStub.resolves({
+      tokenPaymentId: paymentDetails.tokenPaymentId,
+      checkoutUrl: undefined,
+      accounts: [],
+    });
 
     await getPaymentSessionService.getPaymentSession(reqMock);
 
@@ -92,22 +126,63 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
 
     const paymentDetails = {
       tokenPaymentId: 'GLA-123',
+      checkoutUrl:
+        'https://uat.m.gcash.com/gcash-cashier-web/1.2.1/index.html#/confirm?bizNo=20260213121212800110170401502663688&timestamp=1770966985656&sign=NpEqOy42MZGLkLw9rj%2BSnWEYfRRzB2b53JNZbqjNSzHj0NZJK1PBdzCL9Fz%2BJOlzoJPEvigCoY%2BayKxdTVAyJ8xPQstOes29MVWJWYQgyGCDy6klcQA4aHq6macdP3IrmhK7RoRAaUG5cWPJTlzRSJtyZ4dmNXWlgxaUOu6%2FbTWOIHbetB1kFbXHc4myEPVYbEsT2aKynfGCc77DbptjrFYAduOcXkoXZLNfxDGJu8OguEePSXVe%2BPLRr%2F%2FZDiTDtlG4BonEGcH01rbOgJoIdsX7t3qdw3HCsU3iaEjsMowjPjnLVXlZUG7GHDB8B96aCs09UOujW0I6J4zU7j%2FUuA%3D%3D&orderAmount=100.00&pdCode=51051000101000100001&merchantid=217020000600748133802&queryInterval=10000&qrcode=GCSHWPV220260213121212800110170401502663688,217020000600748133802&merchantName=Globe%20Bills%20Pay%20Merchant&expiryTime=599',
       settlementDetails: [
         {
           requestType: constants.PAYMENT_REQUEST_TYPES.PAY_BILLS,
           statusRemarks: 'OK',
+          status: 'PROCESSING',
+          transactions: [
+            {
+              amount: { $numberDecimal: '100.00' },
+              keyword: 'LD',
+              provisionStatus: 'PROCESSING',
+            },
+          ],
         },
       ],
       headers: {},
     };
     findOneStub.resolves(paymentDetails);
-    handleLoyaltyPointsStub.resolves({ success: true });
+    handleLoyaltyPointsStub.callsFake(
+      async (_req, _paymentDetails, _clientName, response) => ({
+        ...response,
+        pointsEarned: [
+          {
+            pointsResultCode: 101,
+          },
+        ],
+      })
+    );
 
     const res = await getPaymentSessionService.getPaymentSession(reqMock);
 
     Sinon.assert.calledOnce(checkQuestIndicatorStub);
     Sinon.assert.calledOnce(handleLoyaltyPointsStub);
-    expect(res).to.equal({ success: true });
+
+    // Service should map response to legacy GetPaymentSessionResponse
+    // structure (via transformer), with loyalty contributing only
+    // pointsEarned. We only assert on the key fields we care about
+    // here instead of deep-equality on the whole object.
+    expect(res.tokenPaymentId).to.equal(paymentDetails.tokenPaymentId);
+    expect(res.checkoutUrl).to.equal(paymentDetails.checkoutUrl);
+    expect(res.paymentSession).to.be.null();
+    expect(res.accounts).to.exist();
+    expect(res.accounts[0].status).to.equal('PROCESSING');
+    expect(res.accounts[0].transactions).to.be.an.array();
+    // With the legacy-style transformer, transaction.amount is
+    // normalized to a plain number instead of a Decimal128 wrapper.
+    expect(res.accounts[0].transactions[0].amount).to.equal(100);
+    expect(res.accounts[0].transactions[0].keyword).to.equal('LD');
+    expect(res.accounts[0].transactions[0].provisionStatus).to.equal(
+      'PROCESSING'
+    );
+    expect(res.pointsEarned).to.equal([
+      {
+        pointsResultCode: 101,
+      },
+    ]);
   });
 
   it('should call handleLoyaltyPoints with clientName when available', async () => {
@@ -119,13 +194,26 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
         {
           requestType: constants.PAYMENT_REQUEST_TYPES.PAY_BILLS,
           statusRemarks: 'OK',
+          status: 'PROCESSING',
+          transactions: [
+            {
+              amount: 0,
+              keyword: 'LD',
+              provisionStatus: 'PROCESSING',
+            },
+          ],
         },
       ],
       headers: { clientName: 'MyClient' },
     };
 
     findOneStub.resolves(paymentDetails);
-    handleLoyaltyPointsStub.resolves({ success: true });
+    handleLoyaltyPointsStub.callsFake(
+      async (_req, _paymentDetails, _clientName, response) => ({
+        ...response,
+        success: true,
+      })
+    );
 
     await getPaymentSessionService.getPaymentSession(reqMock);
 
@@ -147,6 +235,14 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
         {
           requestType: constants.PAYMENT_REQUEST_TYPES.PAY_BILLS,
           statusRemarks: 'OK',
+          status: 'PROCESSING',
+          transactions: [
+            {
+              amount: 0,
+              keyword: 'LD',
+              provisionStatus: 'PROCESSING',
+            },
+          ],
         },
       ],
       headers: { clientName: 'MyClient' },
@@ -154,11 +250,11 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
     findOneStub.resolves(paymentDetails);
     handleLoyaltyPointsStub.rejects(new Error('loyalty error'));
 
-    try {
-      await getPaymentSessionService.getPaymentSession(reqMock);
-      throw new Error('Expected to fail');
-    } catch (err) {
-      expect(err.type).to.equal('InternalOperationFailed');
-    }
+    const res = await getPaymentSessionService.getPaymentSession(reqMock);
+
+    // Legacy-aligned behavior: loyalty failures should not bubble up
+    // as InternalOperationFailed; they are logged and the main
+    // GetPaymentSession call still succeeds.
+    expect(res.tokenPaymentId).to.equal(paymentDetails.tokenPaymentId);
   });
 });

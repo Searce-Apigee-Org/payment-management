@@ -48,17 +48,29 @@ const buildReq = ({ payload, appCxsOverrides = {} } = {}) => {
       },
     },
 
-    mongo: {
+    // mongo: {
+    //   customerPaymentsRepository: {
+    //     create: sinon.stub().resolves(),
+    //     findOne: sinon.stub(),
+    //   },
+    //   ecpayTransactionRepository: {
+    //     create: sinon.stub().resolves(),
+    //     findOne: sinon.stub(),
+    //   },
+    // },
+
+    payment: {
       customerPaymentsRepository: {
         create: sinon.stub().resolves(),
         findOne: sinon.stub(),
       },
+    },
+    transactions: {
       ecpayTransactionRepository: {
         create: sinon.stub().resolves(),
         findOne: sinon.stub(),
       },
     },
-
     processCallbackService: {},
 
     helpers: {
@@ -90,7 +102,9 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
     const notification = buildCallbackNotification('PaymentProcessed');
 
     const req = buildReq({ payload: notification });
-    req.mongo.customerPaymentsRepository.findOne = sinon.stub().resolves(null);
+    req.payment.customerPaymentsRepository.findOne = sinon
+      .stub()
+      .resolves(null);
 
     try {
       await callback(req);
@@ -110,7 +124,7 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
 
     const req = buildReq({ payload: notification });
 
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentDetails);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentDetails);
 
     req.dnoService = {
       handleLFDNOXenditUpdatePayment: sinon.stub().resolves(true),
@@ -137,7 +151,7 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
 
     const req = buildReq({ payload: notification });
 
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentDetails);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentDetails);
 
     req.dnoService = {
       handleLFDNOXenditUpdatePayment: sinon.stub().resolves(false),
@@ -166,7 +180,7 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
 
     const req = buildReq({ payload: notification });
 
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentDetails);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentDetails);
 
     req.dnoService = {
       handleLFDNOXenditUpdatePayment: sinon.stub().resolves(false),
@@ -200,8 +214,8 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
 
     const req = buildReq({ payload: notification });
 
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentDetails);
-    req.mongo.ecpayTransactionRepository.findOne.resolves(ecpayTxn);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentDetails);
+    req.transactions.ecpayTransactionRepository.findOne.resolves(ecpayTxn);
 
     req.dnoService = {
       handleLFDNOXenditUpdatePayment: sinon.stub().resolves(false),
@@ -229,7 +243,7 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
 
     const req = buildReq({ payload: notification });
 
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentDetails);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentDetails);
 
     req.dnoService = {
       handleLFDNOXenditUpdatePayment: sinon.stub().resolves(false),
@@ -254,7 +268,7 @@ describe('Services :: v1 :: paymentSessionCallbackService :: callback', () => {
 
     const req = buildReq({ payload: notification });
 
-    req.mongo.customerPaymentsRepository.findOne.resolves(paymentDetails);
+    req.payment.customerPaymentsRepository.findOne.resolves(paymentDetails);
 
     req.dnoService = {
       handleLFDNOXenditUpdatePayment: sinon.stub().resolves(false),

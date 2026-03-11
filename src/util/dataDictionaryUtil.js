@@ -53,9 +53,12 @@ const initializeBuyLoadDataDictionary = (
 };
 
 const finalizeBuyLoadDataDictionary = async (req, tokenPaymentId) => {
-  const { mongo } = req;
-  const paymentEntity =
-    await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+  const { payment, transactions } = req;
+  // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+  const paymentEntity = await payment.customerPaymentsRepository.findOne(
+    tokenPaymentId,
+    req
+  );
 
   const [firstSettlement] = Array.isArray(paymentEntity?.settlementDetails)
     ? paymentEntity.settlementDetails
@@ -64,7 +67,7 @@ const finalizeBuyLoadDataDictionary = async (req, tokenPaymentId) => {
   const firstTransactionId = firstSettlement?.transactions?.[0]?.transactionId;
 
   const buyLoadEntity = firstTransactionId
-    ? await mongo.buyLoadTransactionsRepository.findByTransactionId(
+    ? await transactions.buyLoadTransactionsRepository.findOne(
         firstTransactionId
       )
     : {};

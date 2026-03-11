@@ -1,7 +1,8 @@
 import { logger } from '@globetel/cxs-core/core/logger/index.js';
+import { config } from '../../../convict/config.js';
 import { constants, validationUtil } from '../../util/index.js';
 
-const retrieveGPayOAccessToken = async (req) => {
+const retrieveGPayOAccessToken = async (req, channelId) => {
   try {
     const {
       app: { principalId, channel },
@@ -15,7 +16,7 @@ const retrieveGPayOAccessToken = async (req) => {
       secretManagerClient,
     } = req;
 
-    let clientIdToBeUsed = principalId;
+    let clientIdToBeUsed = channelId ?? principalId;
 
     if (
       payload?.settlementInfo?.breakdown?.some(
@@ -23,8 +24,10 @@ const retrieveGPayOAccessToken = async (req) => {
       ) &&
       channel === constants.CHANNELS.NG1
     ) {
-      clientIdToBeUsed = config.get('dnoClientId');
+      clientIdToBeUsed = config.get('dno.clientId');
     }
+
+    logger.debug('clientIdToBeUsed', clientIdToBeUsed);
 
     const tokenObject = await tokenStore.tokenRepository.getPaymentServiceToken(
       req,
@@ -32,43 +35,35 @@ const retrieveGPayOAccessToken = async (req) => {
       constants.SECRET_ENTITY.GPAYO
     );
 
-    if (
-      !tokenObject ||
-      !validationUtil.isValidToken(tokenObject?.accessToken)
-    ) {
+    if (!tokenObject || !validationUtil.isValidGpayOT2Token(tokenObject)) {
       const encodedCredentials =
-        await secretManager.paymentServiceRepository.getPaymentServiceCredentials(
+        await secretManager.paymentServiceRepository.get(
           secret,
-          constants.SECRET_ENTITY.GPAYO,
-          null
+          constants.SECRET_ENTITY.GPAYO
         );
 
       const rawCredentials = JSON.parse(encodedCredentials);
       logger.debug('rawCredentials', rawCredentials?.[clientIdToBeUsed]);
 
-      const parts = rawCredentials[clientIdToBeUsed].split(':');
-      const [clientId, clientSecret] = parts;
+      const creds = rawCredentials[clientIdToBeUsed];
 
       const tokenResponse =
-        await payoT2.paymentServiceRepository.getAccessTokenT2(
-          http,
-          `${clientId}:${encodeURIComponent(clientSecret)}`
-        );
+        await payoT2.paymentServiceRepository.getAccessTokenT2(http, creds);
 
       logger.debug('tokenResponse', tokenResponse);
       const tokenDetails = tokenResponse.accessToken;
 
       await tokenStore.tokenRepository.putPaymentServiceToken(
         req,
-        clientId,
+        clientIdToBeUsed,
         constants.SECRET_ENTITY.GPAYO,
-        tokenDetails
+        tokenResponse
       );
 
       return tokenDetails;
     }
 
-    return tokenObject.accessToken.accessToken;
+    return tokenObject.accessToken;
   } catch (error) {
     logger.debug('getAuthorizationToken failed', error);
     throw error;
