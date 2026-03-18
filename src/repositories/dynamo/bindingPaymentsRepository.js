@@ -1,5 +1,4 @@
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import { removeBlankProperties } from '@globetel/cxs-core/core/utils/string/index.js';
 import { config } from '../../../convict/config.js';
 
