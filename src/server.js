@@ -174,10 +174,6 @@ const createServer = async (isInPurgatory = false) => {
         plugin: dynamoDbPlugin,
         options: { dynamoDb },
       },
-      {
-        plugin: mongoDbPlugin,
-        options: { mongoose, mongo: mongoStore },
-      },
     ]);
   }
 
