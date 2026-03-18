@@ -55,8 +55,10 @@ const globalDependenciesPlugin = {
       paymentService,
       amaxService,
       productOrderingService,
+      refundService,
       invokeLambda,
       channelConfig,
+      raven,
     } = options;
 
     // models
@@ -83,6 +85,7 @@ const globalDependenciesPlugin = {
     server.decorate('request', 'globeOnline', globeOnline);
     server.decorate('request', 'transactions', transactions);
     server.decorate('request', 'channelConfig', channelConfig);
+    server.decorate('request', 'raven', raven);
 
     // clients
     server.decorate('request', 'secret', secret);
@@ -135,6 +138,7 @@ const globalDependenciesPlugin = {
     );
     server.decorate('request', 'oneApiService', oneApiService);
     server.decorate('request', 'paymentService', paymentService);
+    server.decorate('request', 'refundService', refundService);
 
     //data providers
     server.decorate(
