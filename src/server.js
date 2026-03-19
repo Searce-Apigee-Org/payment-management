@@ -10,7 +10,6 @@ import { pre } from '@globetel/cxs-core/core/response/index.js';
 import { findAccount } from '@globetel/cxs-core/core/services/accounts/mongo.js';
 import { checkThenValidate } from '@globetel/cxs-core/core/services/otp/index.js';
 import {
-  dynamo as dynamoDb,
   mongo as mongoStore,
   redis,
 } from '@globetel/cxs-core/core/stores/index.js';
@@ -23,7 +22,6 @@ import mongoose from 'mongoose';
 import { config } from '../convict/config.js';
 import { mongoModels, paymentTypeModels } from './models/index.js';
 import {
-  dynamoDbPlugin,
   gcsPlugin,
   globalDependenciesPlugin,
   healthCheckPlugin,
@@ -189,10 +187,6 @@ const createServer = async (isInPurgatory = false) => {
       {
         plugin: mongoDbPlugin,
         options: { mongoose, mongo: mongoStore },
-      },
-      {
-        plugin: dynamoDbPlugin,
-        options: { dynamoDb },
       },
     ]);
   }
