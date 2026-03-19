@@ -77,6 +77,130 @@ describe('Repository :: Mongo :: buyLoadTransactionsRepository', () => {
         expect(err.details).to.equal('DB read error');
       }
     });
+
+    it('should throw InternalOperationFailed with clear error when fromDate is invalid', async () => {
+      try {
+        await findByMobileDateChannel({
+          channelCode: 'APP',
+          mobileNumber: '09171234567',
+          fromDate: undefined,
+          toDate: new Date(),
+        });
+        throw new Error('Expected failure but succeeded');
+      } catch (err) {
+        expect(err.type).to.equal('InternalOperationFailed');
+        expect(err.details).to.equal(
+          'Invalid fromDate (expected Date/ISO string)'
+        );
+      }
+    });
+
+    it('should accept ISO string fromDate/toDate (coercion)', async () => {
+      const params = {
+        channelCode: 'APP',
+        mobileNumber: '09171234567',
+        fromDate: '2024-01-01T00:00:00Z',
+        toDate: '2024-01-02T00:00:00Z',
+      };
+
+      const result = await findByMobileDateChannel(params);
+      expect(result).to.be.an.array();
+      expect(result).to.have.length(2);
+    });
+
+    it('should accept numeric timestamp fromDate/toDate (coercion)', async () => {
+      const params = {
+        channelCode: 'APP',
+        mobileNumber: '09171234567',
+        fromDate: Date.parse('2024-01-01T00:00:00Z'),
+        toDate: Date.parse('2024-01-02T00:00:00Z'),
+      };
+
+      const result = await findByMobileDateChannel(params);
+      expect(result).to.be.an.array();
+      expect(result).to.have.length(2);
+    });
+
+    it('should accept moment-like object with toDate() (coercion)', async () => {
+      const params = {
+        channelCode: 'APP',
+        mobileNumber: '09171234567',
+        fromDate: { toDate: () => new Date('2024-01-01T00:00:00Z') },
+        toDate: { toDate: () => new Date('2024-01-02T00:00:00Z') },
+      };
+
+      const result = await findByMobileDateChannel(params);
+      expect(result).to.be.an.array();
+      expect(result).to.have.length(2);
+    });
+
+    it('should throw InternalOperationFailed when fromDate is an unsupported object', async () => {
+      try {
+        await findByMobileDateChannel({
+          channelCode: 'APP',
+          mobileNumber: '09171234567',
+          fromDate: { foo: 'bar' },
+          toDate: new Date(),
+        });
+        throw new Error('Expected failure but succeeded');
+      } catch (err) {
+        expect(err.type).to.equal('InternalOperationFailed');
+        expect(err.details).to.equal(
+          'Invalid fromDate (expected Date/ISO string)'
+        );
+      }
+    });
+
+    it('should throw InternalOperationFailed when fromDate is an invalid Date object', async () => {
+      try {
+        await findByMobileDateChannel({
+          channelCode: 'APP',
+          mobileNumber: '09171234567',
+          fromDate: new Date('invalid-date'),
+          toDate: new Date(),
+        });
+        throw new Error('Expected failure but succeeded');
+      } catch (err) {
+        expect(err.type).to.equal('InternalOperationFailed');
+        expect(err.details).to.equal(
+          'Invalid fromDate (expected Date/ISO string)'
+        );
+      }
+    });
+
+    it('should throw InternalOperationFailed when fromDate is an invalid ISO string', async () => {
+      try {
+        await findByMobileDateChannel({
+          channelCode: 'APP',
+          mobileNumber: '09171234567',
+          fromDate: 'not-a-date',
+          toDate: new Date(),
+        });
+        throw new Error('Expected failure but succeeded');
+      } catch (err) {
+        expect(err.type).to.equal('InternalOperationFailed');
+        expect(err.details).to.equal(
+          'Invalid fromDate (expected Date/ISO string)'
+        );
+      }
+    });
+
+    it('should throw InternalOperationFailed when fromDate.toDate() returns invalid', async () => {
+      try {
+        await findByMobileDateChannel({
+          channelCode: 'APP',
+          mobileNumber: '09171234567',
+          fromDate: { toDate: () => new Date('invalid-date') },
+          toDate: new Date(),
+        });
+        throw new Error('Expected failure but succeeded');
+      } catch (err) {
+        expect(err.type).to.equal('InternalOperationFailed');
+        expect(err.details).to.equal(
+          'Invalid fromDate (expected Date/ISO string)'
+        );
+      }
+    });
   });
 
   describe('findByMobileDate', () => {
@@ -123,6 +247,58 @@ describe('Repository :: Mongo :: buyLoadTransactionsRepository', () => {
         expect(err.type).to.equal('InternalOperationFailed');
         expect(err.details).to.equal('DB failure');
       }
+    });
+
+    it('should throw InternalOperationFailed with clear error when toDate is invalid', async () => {
+      try {
+        await findByMobileDate({
+          mobileNumber: '09179999999',
+          fromDate: new Date(),
+          toDate: null,
+        });
+        throw new Error('Expected failure but succeeded');
+      } catch (err) {
+        expect(err.type).to.equal('InternalOperationFailed');
+        expect(err.details).to.equal(
+          'Invalid toDate (expected Date/ISO string)'
+        );
+      }
+    });
+
+    it('should accept ISO string fromDate/toDate (coercion)', async () => {
+      const params = {
+        mobileNumber: '09171234567',
+        fromDate: '2024-01-01T00:00:00Z',
+        toDate: '2024-01-02T00:00:00Z',
+      };
+
+      const result = await findByMobileDate(params);
+      expect(result).to.be.an.array();
+      expect(result).to.have.length(2);
+    });
+
+    it('should accept numeric timestamp fromDate/toDate (coercion)', async () => {
+      const params = {
+        mobileNumber: '09171234567',
+        fromDate: Date.parse('2024-01-01T00:00:00Z'),
+        toDate: Date.parse('2024-01-02T00:00:00Z'),
+      };
+
+      const result = await findByMobileDate(params);
+      expect(result).to.be.an.array();
+      expect(result).to.have.length(2);
+    });
+
+    it('should accept moment-like object with toDate() (coercion)', async () => {
+      const params = {
+        mobileNumber: '09171234567',
+        fromDate: { toDate: () => new Date('2024-01-01T00:00:00Z') },
+        toDate: { toDate: () => new Date('2024-01-02T00:00:00Z') },
+      };
+
+      const result = await findByMobileDate(params);
+      expect(result).to.be.an.array();
+      expect(result).to.have.length(2);
     });
   });
 

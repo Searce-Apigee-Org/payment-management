@@ -17,6 +17,10 @@ const isValidToken = (accessToken) => {
   return Date.now() <= accessToken.accessTokenExpiresAt * 1000;
 };
 
+const isValidGpayOT2Token = (accessToken) => {
+  return Date.now() <= accessToken.expiresIn * 1000;
+};
+
 const isValidEmail = (email) => {
   const regex = /^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$/;
   return regex.test(email);
@@ -25,6 +29,11 @@ const isValidEmail = (email) => {
 const validateShopperReference = (paymentRequest, req) => {
   const { headers } = req;
   const userToken = headers['user-token'];
+
+  // Legacy behavior: shopperReference is optional. Only validate when provided.
+  if (!paymentRequest?.shopperReference) {
+    return;
+  }
 
   if (!userToken) {
     throw {
@@ -70,26 +79,116 @@ const validateVerficationToken = (payload) => {
 };
 
 const validateECPayTransactionEntity = (entity, t) => {
-  const fieldsToCompare = ['accountNumber', 'accountIdentifier', 'billerName'];
-  const numericFields = ['serviceCharge', 'amountToPay'];
+  // ECPay transaction records can come from either Mongo (camelCase fields)
+  // or DynamoDB (snake_case fields). Accept both shapes.
+  const getString = (obj, camel, snake) =>
+    obj?.[camel] ?? (snake ? obj?.[snake] : undefined);
+
+  const getNumber = (obj, camel, snake) => {
+    const val = getString(obj, camel, snake);
+    return val === undefined || val === null || val === '' ? NaN : Number(val);
+  };
+
+  const entityAccountNumber = getString(
+    entity,
+    'accountNumber',
+    'account_number'
+  );
+  const entityAccountIdentifier = getString(
+    entity,
+    'accountIdentifier',
+    'account_identifier'
+  );
+  const entityBillerName = getString(entity, 'billerName', 'biller_name');
+  const entityServiceCharge = getNumber(
+    entity,
+    'serviceCharge',
+    'service_charge'
+  );
+
+  // Amount can be stored as:
+  // - `amountToPay` (mongo)
+  // - `amount_to_pay` (some dynamo variants)
+  // - `amount` (current dynamo table)
+  // Prefer explicit amountToPay field when present (even if it is 0),
+  // otherwise fall back to `amount`.
+  const rawPrimaryAmountToPay = getString(
+    entity,
+    'amountToPay',
+    'amount_to_pay'
+  );
+  const entityAmountToPay =
+    rawPrimaryAmountToPay !== undefined &&
+    rawPrimaryAmountToPay !== null &&
+    rawPrimaryAmountToPay !== ''
+      ? Number(rawPrimaryAmountToPay)
+      : getNumber(entity, 'amount', 'amount');
+
+  const payloadAccountNumber = t?.accountNumber;
+  const payloadAccountIdentifier = t?.accountIdentifier;
+  const payloadBillerName = t?.billerName;
+  const payloadServiceCharge = getNumber(t, 'serviceCharge');
+  const payloadAmountToPay = getNumber(t, 'amountToPay');
+
+  const diff = {
+    accountNumber: {
+      entity: entityAccountNumber,
+      payload: payloadAccountNumber,
+      match: entityAccountNumber === payloadAccountNumber,
+    },
+    accountIdentifier: {
+      entity: entityAccountIdentifier,
+      payload: payloadAccountIdentifier,
+      match: entityAccountIdentifier === payloadAccountIdentifier,
+    },
+    billerName: {
+      entity: entityBillerName,
+      payload: payloadBillerName,
+      match: entityBillerName === payloadBillerName,
+    },
+    serviceCharge: {
+      entity: entityServiceCharge,
+      payload: payloadServiceCharge,
+      match: entityServiceCharge === payloadServiceCharge,
+    },
+    amountToPay: {
+      entity: entityAmountToPay,
+      payload: payloadAmountToPay,
+      match: entityAmountToPay === payloadAmountToPay,
+    },
+  };
 
   const isMatch =
-    fieldsToCompare.every((f) => entity[f] === t[f]) &&
-    numericFields.every((f) => Number(entity[f]) === Number(t[f]));
+    entityAccountNumber === payloadAccountNumber &&
+    entityAccountIdentifier === payloadAccountIdentifier &&
+    entityBillerName === payloadBillerName &&
+    entityServiceCharge === payloadServiceCharge &&
+    entityAmountToPay === payloadAmountToPay;
 
   if (!isMatch) {
-    logger.error(
-      'ECPAY_TXN_ENTITY_VALIDATION_FAILED',
-      'NotMatchParameterException: ECPay and Payload not the same values'
-    );
+    logger.error('ECPAY_TXN_ENTITY_VALIDATION_FAILED', {
+      reason:
+        'NotMatchParameterException: ECPay and Payload not the same values',
+      // Avoid logging sensitive ECPay table fields (e.g., secret_key).
+      // We only log the comparison keys.
+      diff,
+    });
 
     throw {
       type: 'InvalidOutboundRequest',
+      details:
+        'NotMatchParameterException: ECPay and Payload not the same values',
     };
   }
 };
 
 const validateBindingId = (cxsRequest, response) => {
+  logger.debug('VALIDATION_VALIDATE_BINDING_ID_START', {
+    paymentType: cxsRequest?.paymentType,
+    hasPaymentInformation: Boolean(cxsRequest?.paymentInformation),
+    responseStatus: response?.status,
+  });
+
   const {
     PAYMENT_TYPES: { GCASH },
   } = constants;
@@ -114,6 +213,9 @@ const validateBindingId = (cxsRequest, response) => {
     cxsRequest.paymentType.toUpperCase() === GCASH &&
     bindingRequestId
   ) {
+    logger.debug('VALIDATION_VALIDATE_BINDING_ID_GCASH_PATH', {
+      bindingRequestIdPresent: Boolean(bindingRequestId),
+    });
     if (parseInt(response?.status, 10) === 400) {
       const message = response?.data?.message || null;
 
@@ -135,6 +237,10 @@ const validateBindingId = (cxsRequest, response) => {
 };
 
 const validateOutboundResponse = (responseCode) => {
+  logger.debug('VALIDATION_VALIDATE_OUTBOUND_RESPONSE', {
+    responseCode,
+  });
+
   const {
     HTTP_STATUS_CODES: {
       SC_OK,
@@ -221,6 +327,13 @@ const validateBuyLoadTransaction = (settlementInformation, provisionOrder) => {
 };
 
 const validateVoucherInfoRequest = async (req) => {
+  logger.debug('VALIDATION_VALIDATE_VOUCHER_INFO_REQUEST_START', {
+    channel: req?.app?.channel,
+    settlementCount: Array.isArray(req?.app?.cxsRequest?.settlementInformation)
+      ? req.app.cxsRequest.settlementInformation.length
+      : 0,
+  });
+
   const {
     app: {
       channel,
@@ -235,6 +348,10 @@ const validateVoucherInfoRequest = async (req) => {
   } = constants;
 
   if (channel.toLowerCase() !== NG1.toLowerCase()) {
+    logger.debug('VALIDATION_VALIDATE_VOUCHER_INFO_REQUEST_SKIP', {
+      reason: 'NON_NG1_CHANNEL',
+      channel,
+    });
     return;
   }
 
@@ -242,6 +359,11 @@ const validateVoucherInfoRequest = async (req) => {
     if (!settlement.voucher) {
       continue;
     }
+
+    logger.debug('VALIDATION_VALIDATE_VOUCHER_INFO_REQUEST_HAS_VOUCHER', {
+      requestType: settlement?.requestType,
+      hasUserToken: Boolean(headers?.['user-token']),
+    });
 
     if (!headers['user-token']) {
       throw {
@@ -279,6 +401,11 @@ const validateVoucherInfoRequest = async (req) => {
       UUID_USER: uuid,
       OVERRIDE_DISCOUNT: true,
     };
+
+    logger.debug('VALIDATION_VALIDATE_VOUCHER_INFO_REQUEST_OK', {
+      UUID_USER: uuid,
+      OVERRIDE_DISCOUNT: true,
+    });
   }
 };
 
@@ -315,15 +442,28 @@ const validateSettlementAmount = (settlementInformation) => {
 const validateServiceNumber = (settlementInformation) => {
   const { transactions } = settlementInformation;
 
+  const hasSettlementAccountNumber = Boolean(
+    settlementInformation.accountNumber
+  );
+  const hasSettlementMobileNumber = Boolean(settlementInformation.mobileNumber);
+
   transactions.forEach((t) => {
-    if (!t.serviceNumber) {
+    const hasServiceNumber =
+      t.serviceNumber !== null &&
+      t.serviceNumber !== undefined &&
+      String(t.serviceNumber).trim() !== '';
+
+    // Legacy BuyVoucher behavior:
+    // - If settlementInformation.accountNumber is present => serviceNumber is required in each transaction.
+    // - If settlementInformation.mobileNumber is present => serviceNumber MUST NOT be present.
+    if (hasSettlementAccountNumber && !hasServiceNumber) {
       throw {
         type: 'InsufficientParameters',
         displayMessage: 'serviceNumber required',
       };
     }
 
-    if (settlementInformation.mobileNumber && t.serviceNumber) {
+    if (hasSettlementMobileNumber && hasServiceNumber) {
       throw {
         type: 'InvalidParameter',
         displayMessage: 'mobileNumber cannot coexist with $serviceNumber.',
@@ -334,6 +474,7 @@ const validateServiceNumber = (settlementInformation) => {
 
 export {
   isValidEmail,
+  isValidGpayOT2Token,
   isValidToken,
   validateBindingId,
   validateBuyLoadTransaction,

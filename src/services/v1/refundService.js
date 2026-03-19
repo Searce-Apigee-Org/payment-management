@@ -5,12 +5,14 @@ const buildRefundRequest = async (req, transactionEntity) => {
   const {
     mongo,
     payload: { tokenPaymentId },
+    payment,
   } = req;
   try {
     let refundAmountRes = String(transactionEntity.amount);
     if (tokenPaymentId.includes(constants.CHANNEL_NAME.SUPERAPP)) {
       const paymentEntity =
-        await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+        // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+        await payment.customerPaymentsRepository.findOne(tokenPaymentId, req);
 
       refundAmountRes = paymentEntity.settlementDetails[0].amount;
 
@@ -37,10 +39,14 @@ const updatePaymentWithRefundStatus = async (
   const {
     payload: { tokenPaymentId },
     mongo,
+    payment,
   } = req;
+
   try {
-    const paymentEntity =
-      await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+    const paymentEntity = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
     const isSuccess = refundResponse.statusCode === 202;
     const isXendit =
       paymentEntity.paymentType === constants.PAYMENT_TYPES.XENDIT;
@@ -77,7 +83,7 @@ const updatePaymentWithRefundStatus = async (
 
     const userUuid = buyLoadUtil.extractUserUuid(paymentEntity.userToken);
 
-    await mongo.paymentRepository.savePayment(paymentEntity, userUuid);
+    await payment.customerPaymentsRepository.save(paymentEntity, userUuid);
   } catch (err) {
     logger.debug('REFUND_SERVICE_UPDATE_PAYMENT_WITH_REFUND_STATUS_ERROR', err);
     throw err;

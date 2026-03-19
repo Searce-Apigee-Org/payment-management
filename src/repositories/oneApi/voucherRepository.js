@@ -4,7 +4,7 @@ import { buyLoadUtil } from '../../util/index.js';
 
 const {
   httpProtocol: protocol,
-  webServiceHost: host,
+  host: host,
   requestTimeout: timeout,
   endpoints: { getVoucher: getVoucherEndpoint, useVoucher: useVoucherEndpoint },
 } = config.get('oneApi');

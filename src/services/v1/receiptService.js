@@ -29,12 +29,8 @@ const getPaymentReceipt = async (req) => {
       );
 
     const tokenSecret =
-      await secretManager.credentialsRepository.getPaymentsCredentials(
-        secretManagerClient,
-        constants.DOWNSTREAM.RUDY,
-        constants.SERVICE.PAYMENTS,
-        constants.VERSION.V1,
-        constants.SECRET_ENTITY.CREDENTIALS
+      await secretManager.rudyRepository.getPaymentsCredentials(
+        secretManagerClient
       );
 
     let decodedToken;
@@ -56,8 +52,9 @@ const getPaymentReceipt = async (req) => {
     }
 
     if (userToken) {
-      const { uuid } = decodeUserJWT(userToken);
-      if (uuid !== decodedToken['user-uuid']) {
+      const { userJWT } = decodeUserJWT(userToken);
+
+      if (userJWT?.uuid !== decodedToken['user-uuid']) {
         throw {
           type: 'MismatchedUserToken',
           details:
@@ -94,7 +91,7 @@ const getPaymentReceipt = async (req) => {
 
     return { result: receiptBody, headers: { 'Content-Type': 'text/html' } };
   } catch (err) {
-    logger.debug('CREATE_ESIM_PAYMENT_SESSION_OPERATION_FAILED', err);
+    logger.debug('GET_PAYMENT_RECEIPT_OPERATION_FAILED', err);
     throw err;
   }
 };

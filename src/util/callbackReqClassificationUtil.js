@@ -1,3 +1,4 @@
+import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import Decimal from 'decimal.js';
 import { callbackUtil, constants } from './index.js';
 import { v1Transformers } from './transformers/index.js';
@@ -15,17 +16,15 @@ const classifyByRequestType = (
   let ecPayTransaction = [];
 
   const {
-    app: {
-      cxs: {
-        accountsForBuyLoad,
-        accountsForBuyRoaming,
-        accountsForBuyPromo,
-        accountsForBuyVoucher,
-        volumeBoostPayload,
-        accountsForECPay,
-      },
+    cxs: {
+      accountsForBuyLoad,
+      accountsForBuyRoaming,
+      accountsForBuyPromo,
+      accountsForBuyVoucher,
+      volumeBoostPayload,
+      accountsForECPay,
     },
-  } = req;
+  } = req.app;
 
   const {
     PAYMENT_REQUEST_TYPES: {
@@ -123,15 +122,65 @@ const classifyNonTransactionalRequests = (tokenPaymentId, settlement, req) => {
   } = constants;
 
   const {
-    app: {
-      cxs: { accountsForCreatePolicy },
-    },
-  } = req;
+    cxs: { accountsForCreatePolicy },
+  } = req.app;
 
   if (settlement.requestType === PAY_BILLS) {
+    const rawAmount = settlement.amount;
+
+    let normalizedAmount = null;
+
+    if (
+      rawAmount &&
+      typeof rawAmount === 'object' &&
+      '$numberDecimal' in rawAmount
+    ) {
+      normalizedAmount = rawAmount.$numberDecimal;
+    } else {
+      normalizedAmount = rawAmount;
+    }
+
+    if (typeof normalizedAmount === 'number') {
+      normalizedAmount = normalizedAmount.toString();
+    }
+
+    // Guard against null/undefined/empty or clearly invalid values
+    if (
+      normalizedAmount === null ||
+      normalizedAmount === undefined ||
+      (typeof normalizedAmount === 'string' &&
+        normalizedAmount.trim().length === 0)
+    ) {
+      logger.error('CLASSIFY_NON_TXN_INVALID_AMOUNT', {
+        tokenPaymentId,
+        rawAmount,
+        normalizedAmount,
+        reason: 'EMPTY_OR_NULL_AMOUNT',
+      });
+      accountsForCreatePolicy.push({
+        tokenPaymentId,
+        successAmount: null,
+      });
+      return;
+    }
+
+    // Final safeguard: if Decimal still considers this invalid, fall back to null
+    let successAmount = null;
+    try {
+      successAmount = new Decimal(normalizedAmount);
+    } catch (e) {
+      logger.error('CLASSIFY_NON_TXN_DECIMAL_PARSE_ERROR', {
+        tokenPaymentId,
+        rawAmount,
+        normalizedAmount,
+        error: e.message,
+      });
+      successAmount = null;
+    }
+
     accountsForCreatePolicy.push({
       tokenPaymentId,
-      successAmount: new Decimal(settlement.amount),
+      successAmount,
     });
   }
 };
@@ -142,14 +191,12 @@ const classifyRequestForGFP = (settlement, tokenPaymentId, req) => {
   } = constants;
 
   const {
-    app: {
-      cxs: {
-        accountsPrepaidFiberService,
-        accountsPrepaidFiberRepair,
-        isECPayPaymentType,
-      },
+    cxs: {
+      accountsPrepaidFiberService,
+      accountsPrepaidFiberRepair,
+      isECPayPaymentType,
     },
-  } = req;
+  } = req.app;
 
   const { requestType, createOrderExternal, amount } = settlement;
 
@@ -201,10 +248,8 @@ const classifyRequestForChangeSim = (settlement, paymentDetails, req) => {
   } = constants;
 
   const {
-    app: {
-      cxs: { accountsForCSPayment },
-    },
-  } = req;
+    cxs: { accountsForCSPayment },
+  } = req.app;
 
   const { status, requestType, transactions } = settlement;
 

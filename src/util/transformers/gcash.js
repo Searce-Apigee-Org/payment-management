@@ -1,5 +1,12 @@
 import { constants } from '../index.js';
 
+// Align with legacy Java behavior (StringUtils.isBlank -> null)
+const undefinedIfBlank = (value) => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') return value;
+  return value.trim() === '' ? undefined : value;
+};
+
 const generateGcashRequest = (payload) => {
   const {
     notificationUrls = [],
@@ -36,33 +43,46 @@ const generateGcashPaymentServiceRequest = (cxsRequest, gcashRequest) => {
   const gcashPaymentInfo = {
     notificationUrls: gcashRequest?.notificationUrls ?? [],
     signAgreementPay: gcashRequest?.signAgreementPay ?? null,
-    extendedInfo: gcashRequest?.extendedInformation ?? null,
-    subMerchantName: gcashRequest?.subMerchantName ?? null,
+    extendedInfo: undefinedIfBlank(gcashRequest?.extendedInformation),
+    subMerchantName: undefinedIfBlank(gcashRequest?.subMerchantName),
 
     envInfo: {
       orderTerminalType:
         gcashRequest?.environmentInformation?.orderTerminalType ?? null,
       terminalType: gcashRequest?.environmentInformation?.terminalType ?? null,
-      appVersion: gcashRequest?.environmentInformation?.appVersion ?? null,
-      osType: gcashRequest?.environmentInformation?.osType ?? null,
-      clientIp: gcashRequest?.environmentInformation?.clientIp ?? null,
-      merchantTerminalId:
-        gcashRequest?.environmentInformation?.merchantTerminalId ?? null,
-      merchantIp: gcashRequest?.environmentInformation?.merchantIp ?? null,
-      extendedInfo: gcashRequest?.environmentInformation?.extendedInfo ?? null,
+      appVersion: undefinedIfBlank(
+        gcashRequest?.environmentInformation?.appVersion
+      ),
+      osType: undefinedIfBlank(gcashRequest?.environmentInformation?.osType),
+      clientIp: undefinedIfBlank(
+        gcashRequest?.environmentInformation?.clientIp
+      ),
+      merchantTerminalId: undefinedIfBlank(
+        gcashRequest?.environmentInformation?.merchantTerminalId
+      ),
+      merchantIp: undefinedIfBlank(
+        gcashRequest?.environmentInformation?.merchantIp
+      ),
+      extendedInfo: undefinedIfBlank(
+        gcashRequest?.environmentInformation?.extendedInfo
+      ),
     },
 
     order: {
       orderTitle: gcashRequest?.order?.orderTitle ?? null,
-      merchantTransId: gcashRequest?.order?.merchantTransId ?? null,
-      merchantTransType: gcashRequest?.order?.merchantTransType ?? null,
-      orderMemo: gcashRequest?.order?.orderMemo ?? null,
+      merchantTransId: undefinedIfBlank(gcashRequest?.order?.merchantTransId),
+      merchantTransType: undefinedIfBlank(
+        gcashRequest?.order?.merchantTransType
+      ),
+      orderMemo: undefinedIfBlank(gcashRequest?.order?.orderMemo),
     },
 
     buyer: gcashRequest?.order?.buyer ?? null,
     seller: gcashRequest?.order?.seller ?? null,
-    bindingRequestID: null,
-    uuid: null,
+    // Legacy only sets these after validateBindingId() succeeds.
+    // Use undefined so JSON serialization omits them unless explicitly set.
+    bindingRequestID: undefined,
+    uuid: undefined,
   };
 
   return { gatewayProcessor, gcashPaymentInfo };

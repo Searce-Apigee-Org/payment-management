@@ -1,5 +1,6 @@
 import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import Decimal from 'decimal.js';
+import { config } from '../../../convict/config.js';
 import {
   callbackClassificationUtil,
   callbackUtil,
@@ -7,6 +8,20 @@ import {
   stringUtil,
 } from '../../util/index.js';
 import { v1Transformers } from '../../util/transformers/index.js';
+
+const {
+  migratedLambdas,
+  paymentStatusCallback: { name: paymentStatusCallbackLambda },
+  paymentSendEmail: { name: paymentSendEmailLambda },
+  processCSPayment: { name: processCSPaymentLambda },
+  buyLoad: { name: buyLoadLambda },
+  purchasePromo: { name: purchasePromoLambda },
+  createPromoVouchers: { name: createPromoVouchersLambda },
+  ecPayProcessTransaction: { name: ecPayProcessTransactionLambda },
+  prepaidFiberServiceOrders: { name: prepaidFiberServiceOrdersLambda },
+  prepaidFiberRepairOrders: { name: prepaidFiberRepairOrdersLambda },
+  createPolicy: { name: createPolicyLambda },
+} = config.get('lambda');
 
 const setPaymentStatus = async (
   status,
@@ -24,9 +39,11 @@ const setPaymentStatus = async (
     tokenPaymentId,
   } = paymentDetails;
 
+  logger.info('settlementDetails:', settlementDetails);
+
   for (let settlement of settlementDetails) {
     const { transactions = [] } = settlement;
-    settlement.status(status);
+    settlement.status = status;
     settlement.statusRemarks = !settlement.statusRemarks
       ? refusalReason
       : settlement.statusRemarks;
@@ -77,6 +94,8 @@ const triggerGlobeCallback = async (paymentDetails, req) => {
   const {
     payload: { notification },
     cxs,
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   try {
@@ -86,7 +105,12 @@ const triggerGlobeCallback = async (paymentDetails, req) => {
     } = constants;
 
     const notificationPayload = notification.payload;
-    const tokenPaymentId = notification.paymentId;
+    const tokenPaymentId = notificationPayload.paymentId;
+
+    if (!tokenPaymentId) {
+      logger.error('TOKEN_PAYMENT_ID_UNDEFINED', notification);
+      throw new Error('Token Payment ID is undefined');
+    }
 
     const tokenPaymentIdPrefix = tokenPaymentId.substring(0, 3);
 
@@ -99,6 +123,9 @@ const triggerGlobeCallback = async (paymentDetails, req) => {
     }
 
     const channelId = paymentDetails.channelId;
+    const isMigratedLambda = migratedLambdas.includes(
+      paymentStatusCallbackLambda
+    );
 
     if (!stringUtil.compareLowerCase(paymentDetails.paymentType, CARD)) {
       const payload =
@@ -107,7 +134,19 @@ const triggerGlobeCallback = async (paymentDetails, req) => {
           channelId
         );
 
-      cxs.paymentManagementRepository.paymentStatusCallbackAsync(req, payload);
+      if (isMigratedLambda) {
+        cxs.paymentManagementRepository.paymentStatusCallbackAsync(
+          req,
+          payload
+        );
+        logger.info('GCP PaymentStatusCallback');
+      } else {
+        serviceHelpers.lambdaService.paymentStatusCallbackLambda({
+          invokeLambda,
+          payload,
+        });
+        logger.info('AWS PaymentStatusCallback');
+      }
 
       return;
     }
@@ -124,7 +163,16 @@ const triggerGlobeCallback = async (paymentDetails, req) => {
         paymentDetails
       );
 
-    cxs.paymentManagementRepository.paymentStatusCallbackAsync(req, payload);
+    if (isMigratedLambda) {
+      cxs.paymentManagementRepository.paymentStatusCallbackAsync(req, payload);
+      logger.info('GCP PaymentStatusCallback');
+    } else {
+      serviceHelpers.lambdaService.paymentStatusCallbackLambda({
+        invokeLambda,
+        payload,
+      });
+      logger.info('AWS PaymentStatusCallback');
+    }
   } catch (error) {
     logger.error('GLOBE_CALLBACK_TRIGGER_FAILED', error);
     throw error;
@@ -135,6 +183,8 @@ const sendPaymentNotificationEmail = async (paymentDetails, req) => {
   const {
     payload: { notification },
     cxs,
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   const notificationPayload = notification.payload;
@@ -149,8 +199,18 @@ const sendPaymentNotificationEmail = async (paymentDetails, req) => {
       ipAddress,
     };
 
-    //invoke async
-    cxs.communcationsRepository.sendPaymentsEmailAsync(req, payload);
+    const isMigratedLambda = migratedLambdas.includes(paymentSendEmailLambda);
+
+    if (isMigratedLambda) {
+      cxs.communcationsRepository.sendPaymentsEmailAsync(req, payload);
+      logger.info('GCP SendPaymentNotificationEmail');
+    } else {
+      serviceHelpers.lambdaService.paymentSendEmailLambda({
+        invokeLambda,
+        payload,
+      });
+      logger.info('AWS SendPaymentNotificationEmail');
+    }
   }
 };
 
@@ -224,11 +284,23 @@ const processCSPayment = (req) => {
     app: {
       cxs: { accountsForCSPayment },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const account of accountsForCSPayment) {
-    //invoke async
-    cxs.paymentManagementRepository.processCSPaymentAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(processCSPaymentLambda);
+
+    if (isMigratedLambda) {
+      cxs.paymentManagementRepository.processCSPaymentAsync(req, account);
+      logger.info('GCP ProcessCSPayment');
+    } else {
+      serviceHelpers.lambdaService.processCSPaymentLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS ProcessCSPayment');
+    }
   }
 };
 
@@ -238,10 +310,23 @@ const processBuyLoad = (req) => {
     app: {
       cxs: { accountsForBuyLoad },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const account of accountsForBuyLoad) {
-    cxs.paymentManagementRepository.buyLoadAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(buyLoadLambda);
+
+    if (isMigratedLambda) {
+      cxs.paymentManagementRepository.buyLoadAsync(req, account);
+      logger.info('GCP BuyLoad');
+    } else {
+      serviceHelpers.lambdaService.buyLoadLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS BuyLoad');
+    }
   }
 };
 
@@ -251,10 +336,23 @@ const processPurchasePromo = (req) => {
     app: {
       cxs: { accountsForBuyPromo },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const account of accountsForBuyPromo) {
-    cxs.productOrderingRepository.purchasePromoAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(purchasePromoLambda);
+
+    if (isMigratedLambda) {
+      cxs.productOrderingRepository.purchasePromoAsync(req, account);
+      logger.info('GCP PurchasePromo');
+    } else {
+      serviceHelpers.lambdaService.purchasePromoLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS PurchasePromo');
+    }
   }
 };
 
@@ -264,10 +362,25 @@ const processBuyVoucher = (req) => {
     app: {
       cxs: { accountsForBuyVoucher },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const account of accountsForBuyVoucher) {
-    cxs.paymentMethodsRepository.processBuyVoucherAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(
+      createPromoVouchersLambda
+    );
+
+    if (isMigratedLambda) {
+      cxs.paymentMethodsRepository.processBuyVoucherAsync(req, account);
+      logger.info('GCP CreatePromoVouchers');
+    } else {
+      serviceHelpers.lambdaService.createPromoVouchersLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS CreatePromoVouchers');
+    }
   }
 };
 
@@ -277,10 +390,23 @@ const processVolumeBoost = (req) => {
     app: {
       cxs: { volumeBoostPayload },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const account of volumeBoostPayload) {
-    cxs.productOrderingRepository.volumeBoostAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(purchasePromoLambda);
+
+    if (isMigratedLambda) {
+      cxs.productOrderingRepository.volumeBoostAsync(req, account);
+      logger.info('GCP PurchasePromo (processVolumeBoost)');
+    } else {
+      serviceHelpers.lambdaService.purchasePromoLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS PurchasePromo (processVolumeBoost)');
+    }
   }
 };
 
@@ -290,10 +416,25 @@ const processECPay = (req) => {
     app: {
       cxs: { ecPayPayload },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const account of ecPayPayload) {
-    cxs.ecpayRepository.ecPayAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(
+      ecPayProcessTransactionLambda
+    );
+
+    if (isMigratedLambda) {
+      cxs.ecpayRepository.ecPayAsync(req, account);
+      logger.info('GCP ECPayProcessTransaction');
+    } else {
+      serviceHelpers.lambdaService.ecPayProcessTransactionLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS ECPayProcessTransaction');
+    }
   }
 };
 
@@ -303,10 +444,25 @@ const processPrepaidFiberServiceOrders = (req) => {
     app: {
       cxs: { accountsPrepaidFiberService },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const order of accountsPrepaidFiberService) {
-    cxs.serviceOrderingRepository.prepaidFiberServiceOrderAsync(req, order);
+    const isMigratedLambda = migratedLambdas.includes(
+      prepaidFiberServiceOrdersLambda
+    );
+
+    if (isMigratedLambda) {
+      cxs.serviceOrderingRepository.prepaidFiberServiceOrderAsync(req, order);
+      logger.info('GCP PrepaidFiberServiceOrders');
+    } else {
+      serviceHelpers.lambdaService.prepaidFiberServiceOrdersLambda({
+        invokeLambda,
+        payload: order,
+      });
+      logger.info('AWS PrepaidFiberServiceOrders');
+    }
   }
 };
 
@@ -316,10 +472,28 @@ const processPrepaidFiberRepairOrders = (req) => {
     app: {
       cxs: { accountsPrepaidFiberRepair },
     },
+    invokeLambda,
+    serviceHelpers,
   } = req;
 
   for (const order of accountsPrepaidFiberRepair) {
-    cxs.workforceManagementRepository.prepaidFiberRepairOrderAsync(req, order);
+    const isMigratedLambda = migratedLambdas.includes(
+      prepaidFiberRepairOrdersLambda
+    );
+
+    if (isMigratedLambda) {
+      cxs.workforceManagementRepository.prepaidFiberRepairOrderAsync(
+        req,
+        order
+      );
+      logger.info('GCP PrepaidFiberRepairOrdersLambda');
+    } else {
+      serviceHelpers.lambdaService.prepaidFiberRepairOrdersLambda({
+        invokeLambda,
+        payload: order,
+      });
+      logger.info('AWS PrepaidFiberRepairOrdersLambda');
+    }
   }
 };
 
@@ -329,6 +503,7 @@ const processCreatePolicy = (paymentDetails, req) => {
     app: {
       cxs: { accountsForCreatePolicy },
     },
+    invokeLambda,
   } = req;
 
   const { budgetProtectProfile } = paymentDetails;
@@ -343,7 +518,18 @@ const processCreatePolicy = (paymentDetails, req) => {
   }
 
   for (const account of accountsForCreatePolicy) {
-    cxs.productOrderingRepository.createPolicyAsync(req, account);
+    const isMigratedLambda = migratedLambdas.includes(createPolicyLambda);
+
+    if (isMigratedLambda) {
+      cxs.productOrderingRepository.createPolicyAsync(req, account);
+      logger.info('GCP CreatePolicy');
+    } else {
+      serviceHelpers.lambdaService.createPolicyLambda({
+        invokeLambda,
+        payload: account,
+      });
+      logger.info('AWS CreatePolicy');
+    }
   }
 };
 
@@ -354,6 +540,11 @@ const processBuyRoaming = (req, isV1) => {
       cxs: { accountsForBuyRoaming },
     },
   } = req;
+
+  logger.info('PROCESSING_BUY_ROAMING', {
+    accountsForBuyRoaming,
+    isV1,
+  });
 
   if (!isV1) {
     for (const account of accountsForBuyRoaming) {

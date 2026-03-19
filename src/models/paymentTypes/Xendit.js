@@ -25,6 +25,7 @@ const XenditRequestSchema = Joi.object({
   reusability: Joi.string().required(),
 
   budgetProtect: Joi.boolean(),
+  oonaSkus: Joi.array().items(Joi.string()).optional(),
 })
   .required()
   .unknown(false);
@@ -61,11 +62,15 @@ const processXenditRequest = async (payload, settlementInfo, req) => {
     const xenditProductName = payload.productName;
 
     const {
-      PAYMENT_REQUEST_TYPES: { BUY_PROMO, BUY_LOAD, CHANGE_SIM },
+      PAYMENT_REQUEST_TYPES: { BUY_PROMO, BUY_LOAD, CHANGE_SIM, BUY_ROAMING },
       PAYMENT_TYPES: { XENDIT },
       PAYMENT_ENTITY_TYPES: { ENTITY_CHANGESIM },
     } = constants;
 
+    // Legacy Java compatibility:
+    // - productName is required for BuyPromo & BuyLoad
+    // - ChangeSim also requires productName (and must match ENTITY_CHANGESIM)
+    // - BuyRoaming does NOT require productName
     const applicableRequestTypes = [BUY_PROMO, BUY_LOAD, CHANGE_SIM].map((t) =>
       t.toLowerCase()
     );
@@ -86,8 +91,10 @@ const processXenditRequest = async (payload, settlementInfo, req) => {
 
     const validators = {
       [BUY_PROMO.toLowerCase()]: async () => {
-        const validEntity =
-          await validationService.validateAccountBrand(settlementInfo);
+        const validEntity = await validationService.validateAccountBrand(
+          settlementInfo?.mobileNumber,
+          req
+        );
         if (xenditProductName.toLowerCase() !== validEntity.toLowerCase()) {
           logger.error('InvalidRequestValidateException', xenditProductName);
           throw {
@@ -111,6 +118,7 @@ const processXenditRequest = async (payload, settlementInfo, req) => {
           };
         }
       },
+      // BUY_ROAMING: no productName validation required (legacy behavior)
     };
 
     if (validators[settlementInfoRequestType]) {

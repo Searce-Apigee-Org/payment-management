@@ -1,4 +1,5 @@
 import decodeUserJWT from '@globetel/cxs-core/core/jwt/decodeUserJWT.js';
+import logger from '@globetel/cxs-core/core/logger/logger.js';
 import {
   constants,
   paymentsUtil,
@@ -9,6 +10,11 @@ import {
 } from '../../util/index.js';
 
 const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
+  logger.debug('CREATE_PAYMENT_SERVICE_REQUEST_START', {
+    paymentType: req?.cxsRequest?.paymentType,
+    requestType: req?.cxsRequest?.settlementInformation?.[0]?.requestType,
+  });
+
   const {
     validationService,
     cxsRequest,
@@ -39,12 +45,16 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
   const {
     PAYMENT_TYPES: { DROPIN, GCASH, XENDIT, ADYEN },
     PAYMENT_SESSIONS: { GENERIC, CREATE, XENDIT: XENDIT_SESSION },
-    PAYMENT_REQUEST_TYPES: { BUY_PROMO, PAY_BILLS },
+    PAYMENT_REQUEST_TYPES: { BUY_PROMO, BUY_ROAMING, PAY_BILLS },
     XENDIT_PAYMENT_METHODS: { TYPE_CC_DC, TYPE_DIRECT_DEBIT },
   } = constants;
 
   if (stringUtil.compareLowerCase(paymentType, DROPIN)) {
     paymentSessionType = GENERIC;
+    logger.debug('CREATE_PAYMENT_SERVICE_REQUEST_ROUTE', {
+      paymentType,
+      paymentSessionType,
+    });
     const payload =
       transformers.adyenDropin.generateDropinPaymentServiceRequest(
         cxsRequest,
@@ -55,6 +65,10 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
       payload);
   } else if (stringUtil.compareLowerCase(paymentType, GCASH)) {
     paymentSessionType = CREATE;
+    logger.debug('CREATE_PAYMENT_SERVICE_REQUEST_ROUTE', {
+      paymentType,
+      paymentSessionType,
+    });
     const payload = transformers.gcash.generateGcashPaymentServiceRequest(
       cxsRequest,
       paymentInfoRequest
@@ -90,6 +104,10 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
     }
   } else if (stringUtil.compareLowerCase(paymentType, ADYEN)) {
     paymentSessionType = CREATE;
+    logger.debug('CREATE_PAYMENT_SERVICE_REQUEST_ROUTE', {
+      paymentType,
+      paymentSessionType,
+    });
 
     const payload = transformers.adyenSDK.generateAdyenPaymentServiceRequest(
       cxsRequest,
@@ -102,7 +120,13 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
     } = payload);
   } //XENDIT
   else {
-    paymentSessionType = GENERIC;
+    // Legacy alignment: Xendit should use a dedicated command name so PAYO
+    // interprets the payload correctly (and does not require card-style remark values).
+    paymentSessionType = XENDIT_SESSION;
+    logger.debug('CREATE_PAYMENT_SERVICE_REQUEST_ROUTE', {
+      paymentType,
+      paymentSessionType,
+    });
     let xenditPayload = transformers.xendit.generateXenditBasePaymentInfo(
       cxsRequest,
       paymentInfoRequest
@@ -117,7 +141,6 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
       paymentInfo = {
         ...paymentInfo,
         paymentMethodId: paymentInfoRequest?.paymentMethodId ?? null,
-        midLabel: null,
       };
 
       const apiconfig = await secretManager.apiConfigRepository.getApiConfig(
@@ -140,6 +163,9 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
         getAccountInfoRequest.serviceNumber = settlement.landlineNumber.trim();
 
       let response;
+      // Needed for MID resolution for PayBills (based on accountType)
+      let accountType = null;
+
       if (stringUtil.compareLowerCase(cxsRequestType, PAY_BILLS)) {
         response = await accountInfoService.getInfo(req, getAccountInfoRequest);
         if (response.statusCode.toString().includes('40002')) {
@@ -154,27 +180,32 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
         }
       }
 
-      const status = response?.hipResponse?.status;
+      // Enrich account info ONLY for PayBills.
+      // For BuyLoad / other requestTypes, HIP is not called (response is undefined)
+      // and we must NOT fail validation.
+      if (stringUtil.compareLowerCase(cxsRequestType, PAY_BILLS)) {
+        const status = response?.hipResponse?.Status;
 
-      if (status !== '00') {
-        throw {
-          type: 'InvalidParameter',
-        };
-      }
+        if (status !== '00') {
+          throw {
+            type: 'InvalidParameter',
+          };
+        }
 
-      const accountType = response?.hipResponse?.accountType ?? null;
-      const accountName = response?.hipResponse?.accountName ?? null;
-      const accountNumber = response?.hipResponse?.accountNumber ?? null;
+        accountType = response?.hipResponse?.AccountType ?? '';
+        const accountName = response?.hipResponse?.AccountName ?? '';
+        const accountNumber = response?.hipResponse?.AccountNumber ?? '';
 
-      cxsRequest.settlementInformation[0].accountType = Buffer.from(
-        accountType || ''
-      ).toString('base64');
-      cxsRequest.settlementInformation[0].accountName = Buffer.from(
-        accountName || ''
-      ).toString('base64');
+        cxsRequest.settlementInformation[0].accountType = Buffer.from(
+          accountType || ''
+        ).toString('base64');
+        cxsRequest.settlementInformation[0].accountName = Buffer.from(
+          accountName || ''
+        ).toString('base64');
 
-      if (settlement.landlineNumber?.trim()) {
-        cxsRequest.settlementInformation[0].accountNumber = accountNumber;
+        if (settlement.landlineNumber?.trim()) {
+          cxsRequest.settlementInformation[0].accountNumber = accountNumber;
+        }
       }
 
       let mid = null;
@@ -203,14 +234,31 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
         }
       }
 
-      paymentInfo.midLabel = mid ?? null;
+      // IMPORTANT: PAYO rejects keys that exist but are null/empty.
+      // Only set midLabel if it is a non-empty string.
+      if (typeof mid === 'string' && mid.trim().length > 0) {
+        paymentInfo.midLabel = mid;
+      }
     } else if (stringUtil.compareLowerCase(type, TYPE_DIRECT_DEBIT)) {
-      const userToken = headers['user-token'];
-      const decodedToken = decodeUserJWT(userToken);
-      const uuid = decodedToken?.userJWT?.uuid;
+      const userHeader = headers?.['user-token'];
+
+      let uuid = null;
+      if (typeof userHeader === 'string') {
+        // Legacy behavior: decode Bearer token string
+        const decodedToken = decodeUserJWT(userHeader);
+        uuid = decodedToken?.userJWT?.uuid ?? null;
+      } else if (userHeader && typeof userHeader === 'object') {
+        // New behavior: header was already parsed upstream
+        uuid = userHeader.uuid ?? null;
+      }
+
+      // Legacy Java removes hyphens so PAYO receives a 32-char UUID.
+      // Example: d96ca979-a50d-43dc-8862-19c61c6e6743 -> d96ca979a50d43dc886219c61c6e6743
+      const normalizedUuid =
+        typeof uuid === 'string' ? uuid.replace(/-/g, '') : uuid;
 
       const directDebitInfo = {
-        customerUuid: uuid ?? null,
+        customerUuid: normalizedUuid,
         directDebit: paymentInfoRequest?.directDebit ?? null,
       };
 
@@ -238,28 +286,39 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
 
   let settlementInfos = [];
   for (const settlement of settlementInformation) {
-    const newSettlementInfoObj = {};
-    newSettlementInfoObj.accountNumber = settlement.accountNumber ?? null;
-    newSettlementInfoObj.mobileNumber = settlement.mobileNumber ?? null;
-    newSettlementInfoObj.landlineNumber = settlement.landlineNumber ?? null;
-    newSettlementInfoObj.emailAddress = settlement.emailAddress?.trim() || null;
-    newSettlementInfoObj.transactionType = settlement.transactionType ?? null;
-    newSettlementInfoObj.requestType = settlement.requestType ?? null;
-    newSettlementInfoObj.amount = settlement.amount ?? null;
-    newSettlementInfoObj.referralCode = settlement.referralCode ?? null;
-    newSettlementInfoObj.accountName = settlement.accountName ?? null;
-    newSettlementInfoObj.accountType = settlement.accountType ?? null;
-    newSettlementInfoObj.billsType = settlement.billsType ?? null;
-    await validationService.validateTransactions(req, newSettlementInfoObj);
+    // Validate the original settlement (including transactions[])
+    // BEFORE building the outbound settlementInfos payload, to match legacy Java.
+    await validationService.validateTransactions(req, settlement);
+
+    // IMPORTANT: Payment Service rejects keys that exist but are null/empty.
+    // Align with legacy behavior by omitting missing optional keys.
+    const newSettlementInfoObj = paymentsUtil.removeNullDeep({
+      accountNumber: settlement.accountNumber ?? null,
+      mobileNumber: settlement.mobileNumber ?? null,
+      landlineNumber: settlement.landlineNumber ?? null,
+      emailAddress: settlement.emailAddress?.trim() || null,
+      transactionType: settlement.transactionType ?? null,
+      requestType: settlement.requestType ?? null,
+      amount: settlement.amount ?? null,
+      referralCode: settlement.referralCode ?? null,
+      accountName: settlement.accountName ?? null,
+      accountType: settlement.accountType ?? null,
+      billsType: settlement.billsType ?? null,
+    });
     settlementInfos.push(newSettlementInfoObj);
   }
+
+  logger.debug('CREATE_PAYMENT_SERVICE_REQUEST_SETTLEMENTS_OK', {
+    count: settlementInfos.length,
+  });
 
   await validationService.validateCheckConvenienceFee(req);
 
   const requestType = settlementInformation[0].requestType;
 
   if (
-    stringUtil.compareLowerCase(requestType, BUY_PROMO) &&
+    (stringUtil.compareLowerCase(requestType, BUY_PROMO) ||
+      stringUtil.compareLowerCase(requestType, BUY_ROAMING)) &&
     paymentInfoRequest?.oonaSkus?.length
   ) {
     if (stringUtil.compareLowerCase(paymentType, GCASH)) {
@@ -268,7 +327,7 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
         paymentInfoRequest.oonaSkus
       );
     } else if (stringUtil.compareLowerCase(paymentType, XENDIT)) {
-      paymentInfo = await oonaService.applyOonaPricing(
+      paymentInfo.miscellaneous = await oonaService.applyOonaPricing(
         req,
         paymentInfoRequest.oonaSkus
       );
@@ -279,17 +338,27 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
     command: {
       name: paymentSessionType,
       payload: {
-        gatewayProcessor,
-        paymentInfo,
-        gcashPaymentInfo,
-        adyenPaymentInfo,
-        settlementInfos,
+        // Align with Payment Service/PAYO validation rules:
+        // omit any keys that would otherwise be present but null/empty.
+        ...paymentsUtil.removeNullDeep({
+          gatewayProcessor,
+          paymentInfo,
+          gcashPaymentInfo,
+          adyenPaymentInfo,
+          settlementInfos,
+        }),
       },
     },
   };
 };
 
 const preProcessPaymentInfo = async (req) => {
+  logger.debug('PREPROCESS_PAYMENT_INFO_START', {
+    channel: req?.app?.channel,
+    paymentType: req?.app?.cxsRequest?.paymentType,
+    requestType: req?.app?.cxsRequest?.settlementInformation?.[0]?.requestType,
+  });
+
   const {
     app: { cxsRequest, channel },
     paymentTypeModels,
@@ -319,6 +388,9 @@ const preProcessPaymentInfo = async (req) => {
     settlementInformation[0].emailAddress
   ) {
     let email = settlementInformation[0].emailAddress;
+    logger.debug('PREPROCESS_PAYMENT_INFO_EMAIL_PRESENT', {
+      hasEmail: Boolean(email),
+    });
     if (email && !validationUtil.isValidEmail(email)) {
       throw {
         type: 'InvalidParameter',
@@ -327,6 +399,10 @@ const preProcessPaymentInfo = async (req) => {
   }
 
   if (paymentType.toLowerCase() === DROPIN.toLowerCase()) {
+    logger.debug('PREPROCESS_PAYMENT_INFO_ROUTE', {
+      paymentType,
+      path: 'DROPIN',
+    });
     const paymentRequest =
       paymentTypeModels.AdyenDropinRequestType.validateAdyenDropinRequest(
         paymentInformation
@@ -342,6 +418,10 @@ const preProcessPaymentInfo = async (req) => {
       req
     );
   } else if (stringUtil.compareLowerCase(GCASH, paymentType)) {
+    logger.debug('PREPROCESS_PAYMENT_INFO_ROUTE', {
+      paymentType,
+      path: 'GCASH',
+    });
     const paymentRequest =
       paymentTypeModels.GcashRequestType.validateGcashRequest(
         paymentInformation
@@ -355,6 +435,11 @@ const preProcessPaymentInfo = async (req) => {
       req
     );
   } else if (stringUtil.compareLowerCase(XENDIT, paymentType)) {
+    logger.debug('PREPROCESS_PAYMENT_INFO_ROUTE', {
+      paymentType,
+      path: 'XENDIT',
+      channel,
+    });
     if (stringUtil.compareLowerCase(channel, DNO)) {
       const paymentRequest =
         paymentTypeModels.DnoXenditRequestType.validateDnoXenditRequest(
@@ -387,6 +472,10 @@ const preProcessPaymentInfo = async (req) => {
       );
     }
   } else {
+    logger.debug('PREPROCESS_PAYMENT_INFO_ROUTE', {
+      paymentType,
+      path: 'ADYEN_SDK',
+    });
     const paymentRequest =
       paymentTypeModels.AdyenSDK.validateAdyenSDKPaymentInfo(
         paymentInformation

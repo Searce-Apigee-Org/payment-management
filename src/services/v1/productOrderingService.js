@@ -5,11 +5,14 @@ const createPolicy = async (req) => {
   try {
     const {
       payload: { tokenPaymentId },
-      mongo,
       cxs,
+      payment,
     } = req;
-    const payments =
-      await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    const payments = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
     if (payments?.budgetProtectProfile !== null) {
       const requestBody = {
         tokenPaymentId,
@@ -27,10 +30,13 @@ const addQuest = async (req) => {
   const {
     mongo,
     payload: { tokenPaymentId },
+    payment,
   } = req;
   try {
-    const payments =
-      await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+    const payments = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
 
     const userUuid = buyLoadUtil.extractUserUuid(payments.userToken);
 
@@ -40,7 +46,7 @@ const addQuest = async (req) => {
       buyLoadUtil.setQuestIndicatorToN(payments);
     }
 
-    await mongo.paymentRepository.savePayment(payments, userUuid);
+    await payment.customerPaymentsRepository.save(payments, userUuid, req);
   } catch (err) {
     logger.debug('PRODUCT_ORDERING_SERVICE_ADD_QUEST_ERROR', err);
     throw err;

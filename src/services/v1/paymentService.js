@@ -5,10 +5,14 @@ const updateOnBuyLoad = async (req, provisionStatus, transactionId) => {
   const {
     mongo,
     payload: { tokenPaymentId },
+    payment,
   } = req;
   try {
-    const paymentEntity =
-      await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    const paymentEntity = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
 
     for (const settlementDetail of paymentEntity.settlementDetails) {
       for (const transaction of settlementDetail.transactions) {
@@ -36,7 +40,12 @@ const updateOnBuyLoad = async (req, provisionStatus, transactionId) => {
     paymentEntity.lastUpdatedDate = buyLoadUtil.getCurrentTimestamp();
     const userUuid = buyLoadUtil.extractUserUuid(paymentEntity.userToken);
 
-    await mongo.paymentRepository.savePayment(paymentEntity, userUuid);
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    await payment.customerPaymentsRepository.save(
+      tokenPaymentId,
+      userUuid,
+      req
+    );
   } catch (error) {
     logger.debug('PAYMENT_SERVICE_UPDATE_ON_BUYLOAD_ERROR', error);
     throw error;

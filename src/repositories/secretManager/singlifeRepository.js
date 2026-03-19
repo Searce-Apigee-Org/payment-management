@@ -4,7 +4,7 @@ import { config } from '../../../convict/config.js';
 import { constants, secretUtil } from '../../util/index.js';
 
 const getPricing = async (secretManagerClient) => {
-  const secretEntity = constants.WEBPAYMENT_CONSTANTS.BUDGET_PROTECT_CONFIG_KEY;
+  const secretEntity = constants.SECRET_ENTITY.SINGLIFE_PRICING;
   const secretName = secretUtil.buildSecretName(secretEntity);
 
   try {

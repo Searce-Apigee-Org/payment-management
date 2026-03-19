@@ -18,6 +18,8 @@ const buyLoad = async (req) => {
     mongo,
     paymentService,
     refundService,
+    payment,
+    transactions,
   } = req;
 
   const { customerId } = params;
@@ -97,8 +99,11 @@ const buyLoad = async (req) => {
     });
     throw err;
   } finally {
-    const paymentEntity =
-      await mongo.paymentRepository.findByPaymentId(tokenPaymentId);
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    const paymentEntity = await payment.customerPaymentsRepository.findOne(
+      tokenPaymentId,
+      req
+    );
     const userUuid = buyLoadUtil.extractUserUuid(paymentEntity.userToken);
 
     await Promise.all([
@@ -107,7 +112,12 @@ const buyLoad = async (req) => {
         transactionEntity.status,
         transactionEntity.transactionId
       ),
-      mongo.buyLoadTransactionsRepository.save(transactionEntity, userUuid),
+      // Persist transaction entity via migratedTables-aware repository (injected under `transactions`)
+      await transactions.buyLoadTransactionsRepository.save(
+        transactionEntity,
+        userUuid,
+        req
+      ),
       dataDictionaryUtil.finalizeBuyLoadDataDictionary(req, tokenPaymentId),
     ]);
   }

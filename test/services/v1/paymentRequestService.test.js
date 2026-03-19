@@ -36,10 +36,10 @@ describe('Service :: v1 :: paymentRequestService :: createPaymentServiceRequest'
         getInfo: sinon.stub().resolves({
           statusCode: 200,
           hipResponse: {
-            status: '00',
-            accountType: 'Postpaid',
-            accountName: 'John Doe',
-            accountNumber: '123456',
+            Status: '00',
+            AccountType: 'Postpaid',
+            AccountName: 'John Doe',
+            AccountNumber: '123456',
           },
         }),
       },
@@ -148,6 +148,40 @@ describe('Service :: v1 :: paymentRequestService :: createPaymentServiceRequest'
     expect(result.command.payload.gatewayProcessor).to.equal('generic');
   });
 
+  it('should build XENDIT TYPE_CC_DC payload for BuyLoad without calling HIP', async () => {
+    const req = {
+      ...mockReq,
+      cxsRequest: {
+        paymentType: 'XENDIT',
+        currency: 'PHP',
+        countryCode: 'PH',
+        settlementInformation: [
+          {
+            requestType: 'BuyLoad',
+            mobileNumber: '09270000000',
+            amount: 60,
+            transactionType: 'N',
+          },
+        ],
+      },
+    };
+
+    const payload = {
+      type: constants.XENDIT_PAYMENT_METHODS.TYPE_CC_DC,
+      paymentMethodId: 'PM001',
+      reusability: 'ONE_TIME_USE',
+      productName: 'SA-LOAD',
+    };
+
+    const result = await createPaymentServiceRequest(payload, req);
+    const info = result.command.payload.paymentInfo;
+
+    expect(req.accountInfoService.getInfo.called).to.be.false();
+    expect(info.paymentMethodId).to.equal('PM001');
+    expect(info.midLabel).to.be.undefined();
+    expect(result.command.payload.gatewayProcessor).to.equal('generic');
+  });
+
   it('should build XENDIT TYPE_DIRECT_DEBIT payload and attach uuid', async () => {
     const req = {
       ...mockReq,
@@ -171,7 +205,8 @@ describe('Service :: v1 :: paymentRequestService :: createPaymentServiceRequest'
       channelCode: 'BPI',
     };
 
-    const USER_UUID = 'a7d55216-f4f0-44f9-a8ac-f979837c22c3';
+    // Legacy Java removes hyphens before sending to PAYO (<=32 chars)
+    const USER_UUID = 'a7d55216f4f044f9a8acf979837c22c3';
     const result = await createPaymentServiceRequest(payload, req);
     const info = result.command.payload.paymentInfo;
 

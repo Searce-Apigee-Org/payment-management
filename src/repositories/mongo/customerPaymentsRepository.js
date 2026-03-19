@@ -150,4 +150,22 @@ const find = async ({ tokenPaymentId }) => {
   }
 };
 
-export { create, find, findOne, put, update, updateOne };
+const save = async (payment, userUuid) => {
+  try {
+    const payments = new CustomerPaymentModel({
+      ...payment,
+      ...(userUuid !== undefined ? { createdById: userUuid } : {}),
+    });
+
+    await payments.save();
+    logger.info('SAVE_PAYMENT_RESPONSE', {
+      success: true,
+    });
+    return { success: true };
+  } catch (error) {
+    logger.debug('MONGO_SAVE_PAYMENT_ERROR', error);
+    throw error;
+  }
+};
+
+export { create, find, findOne, put, save, update, updateOne };

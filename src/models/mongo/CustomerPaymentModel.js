@@ -7,6 +7,10 @@ const customerPaymentSchema = new mongo.mongoose.Schema(
     actions: { type: String, default: null },
     channelId: { type: String, default: null },
     checkoutUrl: { type: String, default: null },
+    customerInfo: {
+      customerId: { type: String, default: null },
+      customerName: { type: String, default: null },
+    },
 
     createDate: { type: Date, default: Date.now },
     createPaymentSessionError: { type: String, default: null },
@@ -47,6 +51,7 @@ const customerPaymentSchema = new mongo.mongoose.Schema(
             serviceId: { type: String, default: null },
             transactionId: { type: String, default: null },
             voucherCategoryName: { type: String, default: null },
+            oonaSkus: { type: [String], default: [] },
             voucherDetails: {
               contentPartner: { type: String, default: null },
               paidAmount: {
@@ -63,12 +68,37 @@ const customerPaymentSchema = new mongo.mongoose.Schema(
         ],
 
         transactionType: { type: String, default: null },
+
+        metadata: {
+          firstName: { type: String, default: null },
+          middleName: { type: String, default: null },
+          lastName: { type: String, default: null },
+          email: { type: String, default: null },
+          mobileNumber: { type: String, default: null },
+          startDate: { type: Date, default: null },
+          endDate: { type: Date, default: null },
+          brand: { type: String, default: null },
+        },
+
+        refund: { type: Object, default: null },
       },
     ],
 
     storedPaymentMethods: { type: String, default: null },
     userToken: { type: String, default: null },
     createdById: { type: String, default: null },
+    budgetProtectProfile: {
+      firstName: { type: String, default: null },
+      middleName: { type: String, default: ' ' },
+      lastName: { type: String, default: null },
+      email: { type: String, default: null },
+      dateOfBirth: { type: String, default: null },
+      gender: { type: String, default: 'Not Provided' },
+      chargeAmount: { type: String, default: null },
+      chargeRate: { type: String, default: null },
+      chargeType: { type: String, default: null },
+    },
+    version: { type: String, default: 'v1' },
   },
   { timestamps: true }
 );

@@ -81,6 +81,36 @@ describe('Util :: RequestValidator :: XenditValidator :: processXenditRequest', 
     ).to.not.reject();
   });
 
+  it('should pass for BUY_PROMO when settlementInfo contains mobileNumber (regression: must not pass settlementInfo object as msisdn)', async () => {
+    // This would previously crash inside cxs-core msisdnFormatter with:
+    // TypeError: mobileNumber.substr is not a function
+    const req = {
+      validationService: {
+        validateAccountBrand: sinon.stub().resolves('SA-BPROMO'),
+      },
+    };
+
+    const payload = {
+      productName: 'SA-BPROMO',
+      type: 'CC_DC',
+      reusability: 'ONE_TIME',
+    };
+
+    const settlement = {
+      requestType: constants.PAYMENT_REQUEST_TYPES.BUY_PROMO,
+      mobileNumber: '09171234567',
+      transactions: [{ keyword: 'promo' }],
+    };
+
+    await expect(
+      processXenditRequest(payload, settlement, req)
+    ).to.not.reject();
+    expect(req.validationService.validateAccountBrand.calledOnce).to.be.true();
+    expect(
+      req.validationService.validateAccountBrand.firstCall.args[0]
+    ).to.equal('09171234567');
+  });
+
   it('should throw InvalidOutboundRequest for invalid productName mismatch', async () => {
     mockReq.validationService.validateAccountBrand.resolves('SA-GFPREPAID');
     try {
@@ -124,6 +154,24 @@ describe('Util :: RequestValidator :: XenditValidator :: processXenditRequest', 
     };
     await expect(
       processXenditRequest(payload, settlementInfoChangeSim, mockReq)
+    ).to.not.reject();
+  });
+
+  it('should NOT require productName for BUY_ROAMING (legacy Java compatibility)', async () => {
+    const settlementInfoRoaming = {
+      requestType: constants.PAYMENT_REQUEST_TYPES.BUY_ROAMING,
+      transactions: [{ serviceId: '323', param: '999', amount: 999 }],
+      mobileNumber: '09976213453',
+    };
+
+    const payload = {
+      // intentionally omit productName
+      type: 'CC_DC',
+      reusability: 'ONE_TIME',
+    };
+
+    await expect(
+      processXenditRequest(payload, settlementInfoRoaming, mockReq)
     ).to.not.reject();
   });
 });

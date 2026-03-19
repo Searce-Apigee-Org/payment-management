@@ -309,8 +309,8 @@ describe('Service :: PaymentsRetrievalService :: getDetailsByMsisdn', () => {
     expect(res).to.equal('ACC-123');
     Sinon.assert.calledOnceWithExactly(
       hip.interimRepository.getDetailsByMSISDN,
-      { MSISDN: '639171234567' },
-      req
+      req,
+      { MSISDN: '639171234567' }
     );
   });
 

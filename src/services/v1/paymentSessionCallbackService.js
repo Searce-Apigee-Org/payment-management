@@ -9,6 +9,8 @@ const callback = async (req) => {
       mongo,
       dnoService,
       processCallbackService,
+      payment,
+      transactions: ecpayTransactions,
     } = req;
 
     req.app.cxs = {};
@@ -23,8 +25,9 @@ const callback = async (req) => {
     let isECPayPaymentType = false;
     const tokenPaymentId = notificationPayload.paymentId;
 
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
     const paymentDetails =
-      await mongo.customerPaymentsRepository.findOne(tokenPaymentId);
+      await payment.customerPaymentsRepository.findOne(tokenPaymentId);
 
     if (!paymentDetails || !Object.keys(paymentDetails).length) {
       throw {
@@ -82,8 +85,9 @@ const callback = async (req) => {
 
       for (const transaction of transactions) {
         if (transaction.partnerReferenceNumber) {
+          // Persist transactions entity via migratedTables-aware repository (injected under `transactions`)
           ecpayTransactionDetails =
-            await mongo.ecpayTransactionRepository.findOne(
+            await ecpayTransactions.ecpayTransactionRepository.findOne(
               transaction.partnerReferenceNumber
             );
 

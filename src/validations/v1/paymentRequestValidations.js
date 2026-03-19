@@ -1,3 +1,4 @@
+import constants from '@globetel/cxs-core/core/constants/index.js';
 import Joi from 'joi';
 
 const budgetProtectProfileSchema = Joi.object({
@@ -15,7 +16,7 @@ const budgetProtectProfileSchema = Joi.object({
 
 const settlementInformationSchema = Joi.object({
   accountNumber: Joi.string().pattern(/^[0-9]+$/),
-  mobileNumber: Joi.string().pattern(/^(9|09|639)[0-9]{9}$/),
+  mobileNumber: Joi.string().pattern(constants.pattern.MSISDN_REGEX_PATTERN),
   emailAddress: Joi.string(),
   amount: Joi.number().min(1),
   requestType: Joi.string().pattern(/\S/).required(),
@@ -42,7 +43,7 @@ const settlementInformationSchema = Joi.object({
     middleName: Joi.string().pattern(/\S*/),
     lastName: Joi.string().pattern(/\S/),
     email: Joi.string().pattern(/\S/),
-    mobileNumber: Joi.string().pattern(/^(9|09|639)[0-9]{9}$/),
+    mobileNumber: Joi.string().pattern(constants.pattern.MSISDN_REGEX_PATTERN),
     startDate: Joi.date().iso(),
     endDate: Joi.date().iso(),
     brand: Joi.string().pattern(/\S/),
@@ -135,8 +136,18 @@ const paymentSessionRequestSchema = {
     .required(),
 };
 
+const paymentSessionResponseSchema = Joi.object({
+  result: Joi.object({
+    tokenPaymentId: Joi.string().required(),
+    pointsEarned: Joi.array().items(Joi.any()).optional(),
+  })
+    .unknown(false)
+    .required(),
+}).label('PaymentSessionResponseModel');
+
 export {
   budgetProtectProfileSchema,
   paymentSessionRequestSchema,
+  paymentSessionResponseSchema,
   settlementInformationSchema,
 };

@@ -7,9 +7,9 @@ const processCSPayments = async (req) => {
       payload,
       secretManager,
       tokenStore,
-      mongo,
       csPaymentsSettlementService,
       gorTokenService,
+      payment,
     } = req;
     const { tokenPaymentId, paymentStatus } = payload;
 
@@ -28,7 +28,8 @@ const processCSPayments = async (req) => {
           req,
           constants.SECRET_ENTITY.CHANGE_SIM
         ),
-        mongo.customerPaymentsRepository.findOne(tokenPaymentId),
+        // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+        payment.customerPaymentsRepository.findOne(tokenPaymentId, req),
       ]
     );
 

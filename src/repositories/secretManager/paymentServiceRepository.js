@@ -59,7 +59,7 @@ const getInitVoucher = async (
         };
       }
 
-      return JSON.parse(decodeB64(secret))?.VOUCHER_AUTH_TOKEN;
+      return JSON.parse(decodeB64(secret));
     } catch (error) {
       logger.debug('getInitVoucher failed', error);
       throw error;
@@ -171,10 +171,37 @@ const getUpdateVoucherAuthToken = async (
   }
 };
 
+const getPaymentAutoRefundConfig = async (secretManagerClient) => {
+  const secretName = secretUtil.buildSecretName(
+    constants.SECRET_ENTITY.PAYMENT_AUTO_REFUND
+  );
+
+  logger.info(`Secret name is ${secretName}`);
+
+  try {
+    const secret = await secretManagerClient.get(secretName);
+
+    if (!secret) {
+      throw {
+        type: 'InvalidOutboundRequest',
+        details: `'${secretName}' in secret manager config not found.`,
+      };
+    }
+
+    const decodedSecret = decodeB64(secret);
+    const voucherAuthToken = JSON.parse(decodedSecret);
+    return voucherAuthToken;
+  } catch (error) {
+    logger.debug('SECRET_MANAGER_PAYMENT_AUTO_REFUND_CONFIG', error);
+    throw error;
+  }
+};
+
 export {
   get,
   getGcashProcessingFee,
   getInitVoucher,
+  getPaymentAutoRefundConfig,
   getPaymentServiceCredentials,
   getRefundAuthToken,
   getUpdateVoucherAuthToken,

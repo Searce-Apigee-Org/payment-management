@@ -18,6 +18,9 @@ describe('Service :: v1 :: getAccountInfoService :: getInfo', () => {
         interimRepository: {
           getDetailsByMSISDN: sinon.stub(),
         },
+        billingRepository: {
+          getAccountInfo: sinon.stub(),
+        },
       },
       downstreamDataProvider: sinon.stub(),
       app: {

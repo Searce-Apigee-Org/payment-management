@@ -9,7 +9,10 @@ import {
   filterPayments,
   formatAmount,
   formatPayments,
+  getChannelConfig,
   getRequestClientId,
+  isPaymentEligibleForRefund,
+  removeNullDeep,
   validateTokenSDK,
 } from '../../src/util/paymentsUtil.js';
 
@@ -194,12 +197,45 @@ describe('Util :: PaymentsUtil :: buildPaymentEntity', () => {
   it('should build payment entity for GCASH', async () => {
     const req = {
       paymentType: constants.PAYMENT_TYPES.GCASH,
-      paymentInformation: { bindingRequestID: 'bind123' },
+      paymentInformation: {
+        bindingRequestID: 'bind123',
+        oonaSkus: ['OonaCompTravel-1'],
+      },
+      settlementInformation: [
+        {
+          amount: 99,
+          transactionType: 'N',
+          requestType: 'BuyPromo',
+          transactions: [
+            {
+              serviceId: '11656',
+              param: '99',
+              amount: 99,
+            },
+          ],
+          metadata: {
+            email: 'someone@gmail.com',
+            endDate: '2026-03-14',
+            firstName: 'some',
+            lastName: 'one',
+            mobileNumber: '09176884210',
+            startDate: '2026-03-09',
+          },
+        },
+      ],
     };
     const result = await buildPaymentEntity('tok456', req, headers, 'chan2', {
       command: { payload: { gcashPaymentInfo: { miscellaneous: 'misc' } } },
     });
-    expect(result).to.exist();
+
+    const plain = result.toObject ? result.toObject() : result;
+    expect(plain).to.exist();
+    expect(plain.settlementDetails[0].oona[0].oonaSku).to.equal([
+      'OonaCompTravel-1',
+    ]);
+    expect(plain.settlementDetails[0].metadata.email).to.equal(
+      'someone@gmail.com'
+    );
   });
 
   it('should build payment entity for ECPAY', async () => {
@@ -300,5 +336,97 @@ describe('Util :: paymentsUtil :: filterPayments', () => {
   it('should include edges when equal to boundary', () => {
     const out = filterPayments(payments, '2025-01-01', '2025-01-01');
     expect(out.map((p) => p.id)).to.equal([1]);
+  });
+});
+
+describe('Util :: paymentsUtil :: removeNullDeep', () => {
+  it('should remove null/undefined values from nested structures', () => {
+    const input = {
+      a: null,
+      b: undefined,
+      c: 1,
+      d: { x: null, y: 2 },
+      e: [null, 3, undefined, { z: null, w: 4 }],
+    };
+
+    const out = removeNullDeep(input);
+
+    expect(out).to.equal({
+      c: 1,
+      d: { y: 2 },
+      e: [3, { w: 4 }],
+    });
+  });
+
+  it('should return undefined for empty objects/arrays after cleanup', () => {
+    expect(removeNullDeep({ a: null })).to.be.undefined();
+    expect(removeNullDeep([null, undefined])).to.be.undefined();
+  });
+});
+
+describe('Util :: paymentsUtil :: isPaymentEligibleForRefund', () => {
+  it('should return true for authorized status with failed provisioning and no refund', () => {
+    const data = {
+      settlementDetails: [
+        {
+          status: 'GCASH_AUTHORISED',
+          refund: null,
+          transactions: [{ provisionStatus: 'FAILED' }],
+        },
+      ],
+    };
+    expect(isPaymentEligibleForRefund(data)).to.be.true();
+  });
+
+  it('should return false when refund already exists', () => {
+    const data = {
+      settlementDetails: [
+        {
+          status: 'XENDIT_AUTHORISED',
+          refund: { amount: 10 },
+          transactions: [{ provisionStatus: 'FAILED' }],
+        },
+      ],
+    };
+    expect(isPaymentEligibleForRefund(data)).to.be.false();
+  });
+
+  it('should return false when status or provisionStatus does not match', () => {
+    const data = {
+      settlementDetails: [
+        {
+          status: 'FAILED',
+          refund: null,
+          transactions: [{ provisionStatus: 'SUCCESS' }],
+        },
+      ],
+    };
+    expect(isPaymentEligibleForRefund(data)).to.be.false();
+  });
+});
+
+describe('Util :: paymentsUtil :: getChannelConfig', () => {
+  it('should return product config when prefix and requestType match', () => {
+    const config = [
+      {
+        prefix: 'GLA',
+        products: [{ type: 'BuyESIMLocal', refundable: true }],
+      },
+    ];
+
+    const out = getChannelConfig('GLA123', 'BuyESIMLocal', config);
+    expect(out).to.equal({ type: 'BuyESIMLocal', refundable: true });
+  });
+
+  it('should return false when prefix is not found', () => {
+    const config = [{ prefix: 'GLB', products: [] }];
+    const out = getChannelConfig('GLA123', 'BuyESIMLocal', config);
+    expect(out).to.be.false();
+  });
+
+  it('should return false when requestType not found', () => {
+    const config = [{ prefix: 'GLA', products: [{ type: 'Other' }] }];
+    const out = getChannelConfig('GLA123', 'BuyESIMLocal', config);
+    expect(out).to.be.false();
   });
 });

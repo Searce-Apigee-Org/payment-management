@@ -1,125 +1,270 @@
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
+import esmock from 'esmock';
 import sinon from 'sinon';
-import { validateEnrolledAccounts } from '../../../src/services/common/enrolledAccountsService.js';
 
 const lab = Lab.script();
-const { describe, it, beforeEach, afterEach } = lab;
+const { describe, it, before, afterEach } = lab;
 export { lab };
 
-describe('Service :: v1 :: validateEnrolledAccountsService :: validateEnrolledAccounts', () => {
-  let req;
+describe('Service :: common :: enrolledAccountsService :: validateEnrolledAccounts', () => {
+  let validateEnrolledAccounts;
+  let findAccountMongoStub;
+  let findAccountDynamoStub;
 
-  beforeEach(() => {
-    req = {
-      findAccount: sinon.stub(),
-    };
+  const buildReq = () => ({
+    findAccount: sinon.stub(),
+    server: {
+      plugins: {
+        dynamoDbPlugin: {
+          dynamoDbClient: 'dummyClient',
+        },
+      },
+    },
+  });
+
+  before(async () => {
+    findAccountMongoStub = sinon.stub();
+    findAccountDynamoStub = sinon.stub();
+
+    ({ validateEnrolledAccounts } = await esmock(
+      '../../../src/services/common/enrolledAccountsService.js',
+      {
+        '../../../convict/config.js': {
+          config: {
+            get: (key) => {
+              if (key === 'dynamo.migratedTables')
+                return ['enrolledAccountsTable'];
+              if (key === 'dynamo.tables.enrolledAccounts')
+                return 'enrolledAccountsTable';
+              return undefined;
+            },
+          },
+        },
+        '@globetel/cxs-core/core/logger/index.js': {
+          logger: { info: sinon.stub(), error: sinon.stub() },
+        },
+        '@globetel/cxs-core/core/services/accounts/mongo.js': {
+          findAccount: findAccountMongoStub,
+        },
+        '@globetel/cxs-core/core/services/accounts/dynamo.js': {
+          findAccount: findAccountDynamoStub,
+        },
+      }
+    ));
   });
 
   afterEach(() => {
     sinon.restore();
   });
 
-  it('should return account details when matching accountNumber found (GFiber Prepaid)', async () => {
-    const uuid = '12345';
-    const mockAccounts = {
-      accountList: [
-        {
-          segment: 'consumer',
-          brand: 'GLOBE',
-          brandDetail: 'GFiber Prepaid',
-          accountNumber: '12345',
-        },
-      ],
-    };
+  it('should throw ForbiddenToAccessAccount when no enrolled accounts', async () => {
+    findAccountMongoStub.resolves({ accountList: [] });
 
-    req.findAccount.resolves(mockAccounts);
-
-    const result = await validateEnrolledAccounts(req, uuid);
-
-    expect(req.findAccount.calledOnceWith(uuid)).to.be.true();
-    expect(result).to.equal('consumer-GLOBE-prepaidWired');
+    try {
+      await validateEnrolledAccounts(buildReq(), 'uuid-1', '09171234567');
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('ForbiddenToAccessAccount');
+    }
   });
 
-  it('should return account details when matching mobileNumber found', async () => {
-    const uuid = '09171234567';
-    const mockAccounts = {
+  it('should return accountDetails when target matches mobileNumber', async () => {
+    findAccountMongoStub.resolves({
       accountList: [
         {
-          segment: 'consumer',
-          brand: 'GLOBE',
-          brandDetail: 'GFiber Postpaid',
+          segment: 'mobile',
+          brand: 'prepaid',
+          brandDetail: 'TM',
           mobileNumber: '09171234567',
         },
       ],
-    };
+    });
 
-    req.findAccount.resolves(mockAccounts);
-
-    const result = await validateEnrolledAccounts(req, uuid);
-
-    expect(result).to.equal('consumer-GLOBE-GFiber Postpaid');
-  });
-
-  it('should return account details when matching landlineNumber found', async () => {
-    const uuid = '028812345';
-    const mockAccounts = {
-      accountList: [
-        {
-          segment: 'business',
-          brand: 'GLOBE',
-          brandDetail: 'Corporate Line',
-          landlineNumber: '028812345',
-        },
-      ],
-    };
-
-    req.findAccount.resolves(mockAccounts);
-
-    const result = await validateEnrolledAccounts(req, uuid);
-
-    expect(result).to.equal('business-GLOBE-Corporate Line');
-  });
-
-  it('should throw ForbiddenToAccessAccount when no enrolled accounts exist', async () => {
-    req.findAccount.resolves({ accountList: [] });
-
-    try {
-      await validateEnrolledAccounts(req, 'uuid-123');
-      throw new Error('Expected to throw');
-    } catch (err) {
-      expect(err.type).to.equal('ForbiddenToAccessAccount');
-    }
-  });
-
-  it('should throw ForbiddenToAccessAccount when no matching UUID found', async () => {
-    const mockAccounts = {
-      accountList: [
-        {
-          segment: 'consumer',
-          brand: 'GLOBE',
-          brandDetail: 'GFiber Postpaid',
-          accountNumber: '9999',
-        },
-      ],
-    };
-
-    req.findAccount.resolves(mockAccounts);
-
-    try {
-      await validateEnrolledAccounts(req, 'uuid-123');
-      throw new Error('Expected to throw');
-    } catch (err) {
-      expect(err.type).to.equal('ForbiddenToAccessAccount');
-    }
-  });
-
-  it('should propagate errors from findAccount()', async () => {
-    req.findAccount.rejects(new Error('DB connection failed'));
-
-    await expect(validateEnrolledAccounts(req, 'uuid-123')).to.reject(
-      Error,
-      'DB connection failed'
+    const result = await validateEnrolledAccounts(
+      buildReq(),
+      'uuid-1',
+      '09171234567'
     );
+    expect(result).to.equal('mobile-prepaid-TM');
+  });
+
+  it('should not match when stored msisdn format differs (strict match)', async () => {
+    findAccountMongoStub.resolves({
+      accountList: [
+        {
+          segment: 'mobile',
+          brand: 'prepaid',
+          brandDetail: 'TM',
+          mobileNumber: '9171234567', // stored without leading 0
+        },
+      ],
+    });
+
+    try {
+      await validateEnrolledAccounts(buildReq(), 'uuid-1', '09171234567');
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('ForbiddenToAccessAccount');
+    }
+  });
+
+  it('should return accountDetails when target matches accountNumber', async () => {
+    findAccountMongoStub.resolves({
+      accountList: [
+        {
+          segment: 'broadband',
+          brand: 'postpaid',
+          brandDetail: 'GHP',
+          accountNumber: '928866382',
+        },
+      ],
+    });
+
+    const result = await validateEnrolledAccounts(
+      buildReq(),
+      'uuid-1',
+      '928866382'
+    );
+    expect(result).to.equal('broadband-postpaid-GHP');
+  });
+
+  it('should return accountDetails with prepaidWired when GFiber Prepaid landline matches', async () => {
+    findAccountMongoStub.resolves({
+      accountList: [
+        {
+          segment: 'broadband',
+          brand: 'prepaid',
+          brandDetail: 'GFiber Prepaid',
+          landlineNumber: '0281234567',
+        },
+      ],
+    });
+
+    const result = await validateEnrolledAccounts(
+      buildReq(),
+      'uuid-1',
+      '0281234567'
+    );
+
+    expect(result).to.equal('broadband-prepaid-prepaidWired');
+  });
+
+  it('should throw ForbiddenToAccessAccount when target does not match any enrolled account', async () => {
+    findAccountMongoStub.resolves({
+      accountList: [
+        {
+          segment: 'mobile',
+          brand: 'prepaid',
+          brandDetail: 'TM',
+          mobileNumber: '09170000000',
+        },
+      ],
+    });
+
+    try {
+      await validateEnrolledAccounts(buildReq(), 'uuid-1', '09171234567');
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('ForbiddenToAccessAccount');
+    }
+  });
+
+  it('should use Dynamo when table is not migrated and still validate enrolled accounts', async () => {
+    const mongoStub = sinon.stub();
+    const dynamoStub = sinon.stub().resolves({
+      Item: {
+        user_uuid: 'uuid-1',
+        enrollAccounts: JSON.stringify([
+          {
+            segment: 'mobile',
+            brand: 'prepaid',
+            brandDetail: 'TM',
+            mobileNumber: '09171234567',
+          },
+        ]),
+      },
+    });
+
+    const { validateEnrolledAccounts: validateEnrolledAccountsDynamo } =
+      await esmock('../../../src/services/common/enrolledAccountsService.js', {
+        '../../../convict/config.js': {
+          config: {
+            get: (key) => {
+              if (key === 'dynamo.migratedTables') return []; // not migrated -> use Dynamo
+              if (key === 'dynamo.tables.enrolledAccounts')
+                return 'enrolledAccountsTable';
+              return undefined;
+            },
+          },
+        },
+        '@globetel/cxs-core/core/logger/index.js': {
+          logger: { info: sinon.stub(), error: sinon.stub() },
+        },
+        '@globetel/cxs-core/core/services/accounts/mongo.js': {
+          findAccount: mongoStub,
+        },
+        '@globetel/cxs-core/core/services/accounts/dynamo.js': {
+          findAccount: dynamoStub,
+        },
+      });
+
+    const req = buildReq();
+
+    const result = await validateEnrolledAccountsDynamo(
+      req,
+      'uuid-1',
+      '09171234567'
+    );
+
+    expect(result).to.equal('mobile-prepaid-TM');
+    expect(
+      dynamoStub.calledOnceWith({ user_uuid: 'uuid-1' }, 'dummyClient')
+    ).to.be.true();
+    expect(mongoStub.called).to.be.false();
+  });
+
+  it('should throw ForbiddenToAccessAccount when Dynamo returns no enrollAccounts', async () => {
+    const mongoStub = sinon.stub();
+    const dynamoStub = sinon.stub().resolves({
+      Item: {},
+    });
+
+    const { validateEnrolledAccounts: validateEnrolledAccountsDynamo } =
+      await esmock('../../../src/services/common/enrolledAccountsService.js', {
+        '../../../convict/config.js': {
+          config: {
+            get: (key) => {
+              if (key === 'dynamo.migratedTables') return [];
+              if (key === 'dynamo.tables.enrolledAccounts')
+                return 'enrolledAccountsTable';
+              return undefined;
+            },
+          },
+        },
+        '@globetel/cxs-core/core/logger/index.js': {
+          logger: { info: sinon.stub(), error: sinon.stub() },
+        },
+        '@globetel/cxs-core/core/services/accounts/mongo.js': {
+          findAccount: mongoStub,
+        },
+        '@globetel/cxs-core/core/services/accounts/dynamo.js': {
+          findAccount: dynamoStub,
+        },
+      });
+
+    const req = buildReq();
+
+    try {
+      await validateEnrolledAccountsDynamo(req, 'uuid-1', '09171234567');
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('ForbiddenToAccessAccount');
+    }
+
+    expect(
+      dynamoStub.calledOnceWith({ user_uuid: 'uuid-1' }, 'dummyClient')
+    ).to.be.true();
+    expect(mongoStub.called).to.be.false();
   });
 });

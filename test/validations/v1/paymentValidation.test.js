@@ -86,9 +86,9 @@ describe('Validation :: PaymentValidation-v1 :: getPaymentSessionResponseSchema'
         tokenPaymentId: 'token-12345',
         paymentDetails: [
           {
-            convenienceFeeAmount: '10',
-            postedAmount: '100',
-            paymentAmount: '110',
+            convenienceFeeAmount: 10,
+            postedAmount: 100,
+            paymentAmount: 110,
           },
         ],
         paymentSession: 'session-123',
@@ -96,7 +96,13 @@ describe('Validation :: PaymentValidation-v1 :: getPaymentSessionResponseSchema'
         accounts: [
           {
             status: 'ACTIVE',
-            transactions: [{ transactionId: 'txn-1', amount: 100 }],
+            transactions: [
+              {
+                transactionId: 'txn-1',
+                amount: 100,
+                partnerReferenceNumber: 'prn-1',
+              },
+            ],
           },
         ],
         merchantAccount: 'merchant-abc',

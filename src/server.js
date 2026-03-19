@@ -1,4 +1,5 @@
 import { http, soap } from '@globetel/cxs-core/core/api-adapters/index.js';
+import { invokeLambda } from '@globetel/cxs-core/core/aws/index.js';
 import { secret } from '@globetel/cxs-core/core/gcp/secret-manager/index.js';
 import {
   onRequestHandler,
@@ -9,7 +10,6 @@ import { pre } from '@globetel/cxs-core/core/response/index.js';
 import { findAccount } from '@globetel/cxs-core/core/services/accounts/mongo.js';
 import { checkThenValidate } from '@globetel/cxs-core/core/services/otp/index.js';
 import {
-  dynamo as dynamoDb,
   mongo as mongoStore,
   redis,
 } from '@globetel/cxs-core/core/stores/index.js';
@@ -21,7 +21,6 @@ import hapiswagger from 'hapi-swagger';
 import mongoose from 'mongoose';
 import { config } from '../convict/config.js';
 import { mongoModels, paymentTypeModels } from './models/index.js';
-import { dynamoDbPlugin } from './plugins/dynamoDbPlugin.js';
 import {
   gcsPlugin,
   globalDependenciesPlugin,
@@ -32,9 +31,13 @@ import {
 import { providers } from './providers/index.js';
 import {
   amax,
+  channelConfig,
   cxs,
   dno,
+  dynamo,
+  gcp,
   gcs,
+  globeOnline,
   gor,
   hip,
   mongo,
@@ -42,9 +45,11 @@ import {
   payment,
   payo,
   payoT2,
+  raven,
   rudy,
   secretManager,
   tokenStore,
+  transactions,
 } from './repositories/index.js';
 import { v1Routes, v2Routes } from './routes/index.js';
 import {
@@ -127,7 +132,6 @@ const createServer = async (isInPurgatory = false) => {
         questIndicatorService: v1Services.questIndicatorService,
         paymentLoyaltyService: v1Services.paymentLoyaltyService,
         t2PaymentServiceAuth: v2Services.t2PaymentServiceAuth,
-        createPaymentSessionService: v2Services.createWebPaymentSessionService,
         downstreamDataProvider: providers.downstreamDataProvider,
         hip,
         accountInfoService,
@@ -144,6 +148,18 @@ const createServer = async (isInPurgatory = false) => {
         esimFetchAuthorizationToken,
         paymentRefundHelper,
         paymentRefundHelper: v1Services.paymentRefundHelper,
+        dynamo,
+        gcp,
+        globeOnline,
+        transactions,
+        amaxService: v1Services.amaxService,
+        productOrderingService: v1Services.productOrderingService,
+        oneApiService: v1Services.oneApiService,
+        paymentService: v1Services.paymentService,
+        refundService: v1Services.refundService,
+        invokeLambda,
+        channelConfig,
+        raven,
       },
     },
     {
@@ -155,6 +171,8 @@ const createServer = async (isInPurgatory = false) => {
     v1Routes.csPaymentsRoutes,
     v1Routes.buyLoadRoutes,
     v2Routes.paymentsRoutes,
+    v1Routes.paymentRefundRoutes,
+    v1Routes.paymentStatusCallbackRoutes,
   ]);
 
   if (!isInPurgatory) {
@@ -170,15 +188,11 @@ const createServer = async (isInPurgatory = false) => {
         plugin: mongoDbPlugin,
         options: { mongoose, mongo: mongoStore },
       },
-      {
-        plugin: dynamoDbPlugin,
-        options: { dynamoDb },
-      },
     ]);
   }
 
   server.ext('onRequest', process([onRequestHandler]));
-  server.ext('onPreHandler', process([preValidateUser]));
+  server.ext('onPreAuth', process([preValidateUser]));
   server.ext('onPreResponse', pre);
 
   return server;

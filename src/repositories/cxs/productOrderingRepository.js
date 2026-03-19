@@ -33,13 +33,13 @@ const purchasePromoAsync = async (req, payload) => {
 
     const url = `${httpProtocol}://${host}/${endpoint}`;
 
-    logger.info('CXS_PURCHAE_PROMO_ASYNC_REQUEST', payload);
+    logger.info('CXS_PURCHASE_PROMO_ASYNC_REQUEST', payload);
 
     const data = await http.post(url, payload, {}, false, false, true);
 
-    logger.debug('CXS_PURCHAE_PROMO_ASYNC_RESPONSE', data);
+    logger.debug('CXS_PURCHASE_PROMO_ASYNC_RESPONSE', data);
   } catch (error) {
-    logger.error('CXS_PURCHAE_PROMO_ASYNC_FAILED', error);
+    logger.error('CXS_PURCHASE_PROMO_ASYNC_FAILED', error);
   }
 };
 
@@ -94,7 +94,7 @@ const buyRoamingAsync = async (req, payload) => {
     const {
       host,
       httpProtocol,
-      endpoints: { createPolicy: endpoint },
+      endpoints: { buyRoaming: endpoint },
     } = config.get('cxs.productOrdering');
 
     const url = `${httpProtocol}://${host}/${endpoint}`;

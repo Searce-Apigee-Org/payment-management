@@ -1,0 +1,85 @@
+sequenceDiagram
+
+    
+    participant "GCP PubSub" as PSub
+
+    participant "PaymentAutoRefund API" as PaymentAutoRefund
+
+    participant Secrets Manager
+
+    participant "RequestPaymentRefund API" as RequestPaymentRefund
+
+    participant MongoDB
+
+    participant Raven
+
+    activate PSub
+
+    box right of PSub: Push Notification
+
+    activate PaymentAutoRefund
+    PSub->PaymentAutoRefund: Invoke PaymentAutoRefund Lambda
+    
+    PaymentAutoRefund->PaymentAutoRefund: Decode message data and validate schema\nResult: Refund Details
+    
+    PaymentAutoRefund->Secrets Manager: Get PaymentAutoRefund Config
+    activate Secrets Manager
+    PaymentAutoRefund<-Secrets Manager: return Channel Configuration 
+    deactivate Secrets Manager
+    
+    loop Refund Details
+
+    alt Check payment if eligible for Refund
+    
+    PaymentAutoRefund->PaymentAutoRefund: Get per channel config via tokenPaymentId prefix
+    
+    note over PaymentAutoRefund: //Payment Validation:// \n <size:11>status = Authorized [GCASH or XENDIT]\n check if requestType is refundable \n provision status = FAILED\n no refund status</size>
+    
+    PaymentAutoRefund->RequestPaymentRefund: Call RequestPaymentRefund API
+    
+    activate RequestPaymentRefund
+    PaymentAutoRefund<-RequestPaymentRefund: return response
+
+    deactivate RequestPaymentRefund
+    
+    PaymentAutoRefund->MongoDB: Update refund status
+    activate MongoDB
+    note right of PaymentAutoRefund: Table: CustomerPayments \n key: tokenPaymentId
+    
+    PaymentAutoRefund<-MongoDB: return response
+
+    deactivate MongoDB
+    
+    note right of PaymentAutoRefund: Invoke **Send Email Refund**
+    
+    PaymentAutoRefund->PaymentAutoRefund: form response
+
+    end
+
+    end
+
+    PaymentAutoRefund->PSub: return response
+
+    deactivate PSub
+
+    deactivate PaymentTable
+
+    group Send Email Refund 
+
+    alt If refund = SUCCESS and product type has notifications enabled
+
+    PaymentAutoRefund->Raven: Invoke PushNotificationExt API
+    
+    activate Raven
+    
+    note over PaymentAutoRefund: //Raven Parameters:// \n <size:11>userIdentity: emailAddress\n userIdentityType: 1\n patternId \n\n notifParam: \n  [REFERENCE_NUMBER] \n  [PAYMENT_METHOD] \n  [AMOUNT] \n  [DATE_TIME]</size>
+    
+    PaymentAutoRefund<-Raven:return response
+    deactivate Raven
+    
+    end
+
+    end
+
+
+    bottomparticipants  

@@ -1,3 +1,4 @@
+import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import { callbackUtil, constants, stringUtil } from '../../util/index.js';
 
 const processCallback = async (
@@ -15,11 +16,17 @@ const processCallback = async (
     },
   } = req;
 
+  logger.info('processCallback:', notification);
+
   const notificationPayload = notification.payload;
   const notificationName = notification.name;
 
   try {
     if (notificationPayload.paymentSession) {
+      logger.info(
+        'Processing payment session callback for notificationPayload.paymentSession:',
+        notificationPayload.paymentSession
+      );
       paymentDetails.paymentSession = notificationPayload.paymentSession;
     } else if (
       callbackUtil.shouldHandleStatus(
@@ -28,6 +35,10 @@ const processCallback = async (
         isRefund
       )
     ) {
+      logger.info(
+        'Processing payment status shouldHandleStatus:',
+        notificationName
+      );
       const res = await processCallbackService.handlePaymentStatusCallback(
         paymentDetails,
         req,
@@ -45,12 +56,12 @@ const processCallback = async (
       );
     } else if (isRefund) {
       callbackUtil.setRefundStatus(notificationPayload, paymentDetails);
-    } else if (notificationPayload.paymentMethods.length) {
+    } else if (notificationPayload?.paymentMethods?.length) {
       paymentDetails.merchantAccount = notificationPayload.merchantAccount;
       paymentDetails.paymentMethods = notificationPayload.paymentMethods;
-    } else if (notificationPayload.paymentResult) {
+    } else if (notificationPayload?.paymentResult) {
       paymentDetails.paymentResult = notificationPayload.paymentResult;
-    } else if (notificationPayload.actions.length) {
+    } else if (notificationPayload?.actions?.length) {
       paymentDetails.actions = notificationPayload.actions;
       (paymentDetails.settlementDetails || []).forEach(
         (a) => (a.status = notificationPayload.status)
@@ -59,7 +70,7 @@ const processCallback = async (
       paymentDetails.checkoutUrl = notificationPayload.checkoutUrl;
     }
 
-    if (notificationPayload.storedPaymentMethods.length) {
+    if (notificationPayload?.storedPaymentMethods?.length) {
       paymentDetails.storedPaymentMethods =
         notificationPayload.storedPaymentMethods;
     }
@@ -82,7 +93,7 @@ const handleErrorPayload = async (
   notificatioName,
   req
 ) => {
-  const { helpers } = req;
+  const { serviceHelpers } = req;
 
   if (stringUtil.compareLowerCase(notificatioName, 'refundResult')) {
     callbackUtil.setXenditRefundStatus(notificationPayload, paymentDetails);
@@ -94,15 +105,19 @@ const handleErrorPayload = async (
     paymentDetails
   );
 
-  if (statusCheck?.shouldUpdateStatus) {
+  if (
+    statusCheck?.shouldUpdateStatus &&
+    serviceHelpers?.paymentSessionCallback
+  ) {
     const { refusalReason, status } = statusCheck;
-    await helpers.paymentSessionCallback.setPaymentStatus(
+    await serviceHelpers.paymentSessionCallback.setPaymentStatus(
       status,
       refusalReason,
       '',
       '',
       paymentDetails,
-      false
+      false,
+      req
     );
   }
 };
@@ -130,7 +145,7 @@ const handlePaymentStatusCallback = async (
       },
     },
     mongo,
-    helpers,
+    serviceHelpers,
   } = req;
 
   const {
@@ -147,17 +162,21 @@ const handlePaymentStatusCallback = async (
 
   callbackUtil.applyStatusRemarks(paymentDetails, description);
 
-  await helpers.paymentSessionCallback.setPaymentStatus(
+  await serviceHelpers.paymentSessionCallback.setPaymentStatus(
     status,
     refusalReasonRaw || '',
     '',
     '',
     paymentDetails,
-    true
+    true,
+    req
   );
 
   await mongo.customerPaymentsRepository.create(paymentDetails);
-  await helpers.paymentSessionCallback.tiggerGlobeCallback(paymentDetails, req);
+  await serviceHelpers.paymentSessionCallback.triggerGlobeCallback(
+    paymentDetails,
+    req
+  );
 
   if (!status.includes(AUTHORISED)) {
     callbackUtil.handleStatusUnauthorised(
@@ -168,13 +187,13 @@ const handlePaymentStatusCallback = async (
     return false;
   }
 
-  await helpers.paymentSessionCallback.sendPaymentNotificationEmail(
+  await serviceHelpers.paymentSessionCallback.sendPaymentNotificationEmail(
     paymentDetails,
     req
   );
 
   const dropinSuccess =
-    await helpers.paymentSessionCallback.resolveDropinStatus(
+    await serviceHelpers.paymentSessionCallback.resolveDropinStatus(
       paymentDetails,
       req
     );
@@ -182,33 +201,33 @@ const handlePaymentStatusCallback = async (
   if (dropinSuccess) return true;
 
   if (accountsForCSPayment.length) {
-    helpers.paymentSessionCallback.processCSPayment(req);
+    serviceHelpers.paymentSessionCallback.processCSPayment(req);
   }
 
   if (accountsForBuyLoad.length) {
-    helpers.paymentSessionCallback.processBuyLoad(req);
+    serviceHelpers.paymentSessionCallback.processBuyLoad(req);
   } else if (accountsForBuyPromo.length) {
-    helpers.paymentSessionCallback.processPurchasePromo(req);
+    serviceHelpers.paymentSessionCallback.processPurchasePromo(req);
   } else if (accountsForBuyVoucher.length) {
-    helpers.paymentSessionCallback.processBuyVoucher(req);
+    serviceHelpers.paymentSessionCallback.processBuyVoucher(req);
   } else if (volumeBoostPayload.length) {
-    helpers.paymentSessionCallback.processVolumeBoost(req);
+    serviceHelpers.paymentSessionCallback.processVolumeBoost(req);
   } else if (accountsForECPay.length) {
-    helpers.paymentSessionCallback.processECPay(req);
+    serviceHelpers.paymentSessionCallback.processECPay(req);
     await mongo.ecpayTransactionRepository.create(ecPayTransactionDetails);
   } else if (accountsPrepaidFiberService.length) {
-    helpers.paymentSessionCallback.processPrepaidFiberServiceOrders(req);
+    serviceHelpers.paymentSessionCallback.processPrepaidFiberServiceOrders(req);
   } else if (accountsPrepaidFiberRepair.length) {
-    helpers.paymentSessionCallback.processPrepaidFiberRepairOrders(req);
+    serviceHelpers.paymentSessionCallback.processPrepaidFiberRepairOrders(req);
   } else if (accountsForCreatePolicy.length) {
     const tokenPrefix = tokenPaymentId.substring(0, 3);
     if (stringUtil.compareLowerCase(tokenPrefix, GLA)) {
-      helpers.paymentSessionCallback.processCreatePolicy(req);
+      serviceHelpers.paymentSessionCallback.processCreatePolicy(req);
     }
   } else if (accountsForBuyRoaming.length) {
     const isV1 =
       !paymentDetails.version || paymentDetails.version.toLowerCase() === 'v1';
-    helpers.paymentSessionCallback.processBuyRoaming(req, isV1);
+    serviceHelpers.paymentSessionCallback.processBuyRoaming(req, isV1);
   }
 
   return true;

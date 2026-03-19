@@ -110,8 +110,10 @@ describe('Util :: Transformers :: GcashTransformer :: generateGcashPaymentServic
 
     expect(result.gcashPaymentInfo.envInfo.orderTerminalType).to.be.null();
     expect(result.gcashPaymentInfo.order.orderTitle).to.be.null();
-    expect(result.gcashPaymentInfo.subMerchantName).to.be.null();
-    expect(result.gcashPaymentInfo.extendedInfo).to.be.null();
+    // Optional fields are omitted (undefined) when missing/blank, aligning with
+    // legacy Java behavior (@JsonInclude NON_NULL).
+    expect(result.gcashPaymentInfo.subMerchantName).to.be.undefined();
+    expect(result.gcashPaymentInfo.extendedInfo).to.be.undefined();
   });
 
   it('should handle partially filled environmentInformation safely', () => {

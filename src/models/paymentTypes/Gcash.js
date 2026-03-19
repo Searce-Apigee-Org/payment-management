@@ -1,4 +1,3 @@
-import logger from '@globetel/cxs-core/core/logger/logger.js';
 import Joi from 'joi';
 import { constants, validationUtil } from '../../util/index.js';
 
@@ -19,7 +18,11 @@ const GcashRequestSchema = Joi.object({
 
   signAgreementPay: Joi.boolean(),
 
-  extendedInformation: Joi.string(),
+  // Legacy behavior: treat blank strings as "missing" for optional fields.
+  // SuperApp has historically sent empty strings for some optional keys
+  // (e.g., productCode: ""). Joi treats "" as invalid for Joi.string()
+  // unless explicitly allowed, which caused false InvalidParameter errors.
+  extendedInformation: Joi.string().trim().empty(''),
 
   environmentInformation: Joi.object({
     orderTerminalType: Joi.string().pattern(/\S/).required(),
@@ -34,11 +37,11 @@ const GcashRequestSchema = Joi.object({
     .required()
     .unknown(false),
 
-  productCode: Joi.string(),
+  productCode: Joi.string().trim().empty(''),
 
-  subMerchantId: Joi.string(),
+  subMerchantId: Joi.string().trim().empty(''),
 
-  subMerchantName: Joi.string(),
+  subMerchantName: Joi.string().trim().empty(''),
 
   order: Joi.object({
     merchantTransId: Joi.string(),
@@ -59,9 +62,10 @@ const GcashRequestSchema = Joi.object({
     .required()
     .unknown(false),
 
-  bindingRequestID: Joi.string(),
+  bindingRequestID: Joi.string().trim().empty(''),
 
   budgetProtect: Joi.boolean(),
+  oonaSkus: Joi.array().items(Joi.string()).optional(),
 })
   .required()
   .unknown(false);
@@ -102,6 +106,7 @@ const processGcashRequest = async (payload, settlementInfo, req) => {
     const {
       PAYMENT_REQUEST_TYPES: {
         BUY_PROMO,
+        BUY_ROAMING,
         BUY_LOAD,
         ECPAY,
         BBPREPAIDPROMO,
@@ -119,6 +124,7 @@ const processGcashRequest = async (payload, settlementInfo, req) => {
 
     const applicableRequestTypes = [
       BUY_PROMO,
+      BUY_ROAMING,
       BUY_LOAD,
       ECPAY,
       BBPREPAIDPROMO,
@@ -141,13 +147,29 @@ const processGcashRequest = async (payload, settlementInfo, req) => {
 
     const validators = {
       [BUY_PROMO.toLowerCase()]: async () => {
-        const validEntity =
-          await validationService.validateAccountBrand(settlementInfo);
+        const validEntity = await validationService.validateAccountBrand(
+          settlementInfo?.mobileNumber,
+          req
+        );
         validationUtil.validatePaymentRequestEntity(
           gcashOrderTitle,
           validEntity
         );
       },
+
+      // Legacy parity: BuyRoaming behaves like a promo purchase for GCash.
+      // Validate orderTitle against the correct entity based on account brand.
+      [BUY_ROAMING.toLowerCase()]: async () => {
+        const validEntity = await validationService.validateAccountBrand(
+          settlementInfo?.mobileNumber,
+          req
+        );
+        validationUtil.validatePaymentRequestEntity(
+          gcashOrderTitle,
+          validEntity
+        );
+      },
+
       [BUY_LOAD.toLowerCase()]: () => {
         validationUtil.validateBuyLoadTransaction(
           settlementInfo,
@@ -181,7 +203,10 @@ const processGcashRequest = async (payload, settlementInfo, req) => {
     };
 
     if (validators[settlementInfoRequestType]) {
-      validators[settlementInfoRequestType]();
+      // Ensure async validators (e.g., BUY_PROMO) are awaited so that
+      // thrown errors are caught by this try/catch instead of becoming
+      // unhandled promise rejections.
+      await validators[settlementInfoRequestType]();
     }
   } catch (error) {
     logger.debug('validateGcashRequest failed', error);

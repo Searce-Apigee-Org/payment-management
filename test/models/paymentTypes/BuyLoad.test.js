@@ -33,6 +33,33 @@ describe('Util :: RequestValidator :: BuyLoadRequestTypeValidator :: validateBuy
     expect(() => validateBuyLoadRequestType(payload)).to.not.throw();
   });
 
+  it('should pass when agentName is an empty string', () => {
+    const payload = [
+      {
+        wallet: 'A',
+        amount: 100,
+        externalTransactionId: 'TX125',
+        agentName: '',
+      },
+    ];
+
+    expect(() => validateBuyLoadRequestType(payload)).to.not.throw();
+    expect(payload[0].agentName).to.equal(null);
+  });
+
+  it('should pass when agentName is whitespace and normalize it to null', () => {
+    const payload = [
+      {
+        wallet: 'A',
+        amount: 100,
+        agentName: '   ',
+      },
+    ];
+
+    expect(() => validateBuyLoadRequestType(payload)).to.not.throw();
+    expect(payload[0].agentName).to.equal(null);
+  });
+
   it('should throw InsufficientParameters when payload is empty', () => {
     const payload = [];
     expect(() => validateBuyLoadRequestType(payload)).to.throw();

@@ -38,6 +38,9 @@ const shouldRecomputeRefund = (paymentDetails, notificationPayload) => {
 const shouldHandleStatus = (notificationPayload, paymentDetails, isRefund) => {
   if (isRefund) return false;
 
+  logger.info('shouldHandleStatus - paymentDetails:', paymentDetails);
+  logger.info('shouldHandleStatus - notificationPayload:', notificationPayload);
+
   const {
     PAYMENT_TYPES: { CARD },
   } = constants;
@@ -51,10 +54,12 @@ const shouldHandleStatus = (notificationPayload, paymentDetails, isRefund) => {
   }
 
   if (stringUtil.compareLowerCase(paymentDetails?.paymentType, CARD)) {
+    logger.info('Payment type is CARD, setting isCard to true');
     isCard = true;
   }
 
   if (notificationPayload?.status) {
+    logger.info('Notification payload has status:', notificationPayload.status);
     hasStatus = true;
   }
 

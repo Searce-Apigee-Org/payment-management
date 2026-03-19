@@ -33,14 +33,20 @@ const applyOonaPricing = async (req, oonaSkus) => {
     };
   }
 
-  let oonaPricingConfig = await secretManager.oonaRepository.getPricing(secret);
+  const oonaPricingConfig =
+    await secretManager.oonaRepository.getPricing(secret);
 
   const miscellaneous = {};
 
   for (const oonaSku of oonaSkus) {
     const baseType = oonaSku.split('-')[0].toLowerCase();
-    oonaUtil.validateOonaSku(baseType, settlementInfo.metadata);
-
+    const metadata = settlementInfo?.metadata;
+    if (!metadata) {
+      logger.debug('OONA_METADATA_MISSING', settlementInfo);
+    } else {
+      logger.debug('OONA_METADATA_EXISTING', settlementInfo);
+      oonaUtil.validateOonaSku(baseType, metadata);
+    }
     if (oonaSku.toLowerCase().startsWith('oonacomptravel-')) {
       const [, compTravelSkuId] = oonaSku.split('-', 2);
       let pricingKey = 'OONA_COMP_TRAVEL';
@@ -99,9 +105,8 @@ const applyOonaPricingForV2 = async (params) => {
           })
         );
 
-        let oonaPricingConfig =
+        const oonaPricingConfig =
           await secretManager.oonaRepository.getPricing(secret);
-        const oonaPriceList = JSON.parse(oonaPricingConfig);
         logger.debug('OONA_SKUS', oonaPricingConfig);
 
         const allowedSkusSet = new Set(
@@ -127,7 +132,7 @@ const applyOonaPricingForV2 = async (params) => {
             for (const skuId of compTravelSkuIds) {
               const amount = oonaUtil.applyOonaCompTravelPricing({
                 skuIdentifier: skuId,
-                pricingData: oonaPriceList,
+                pricingData: oonaPricingConfig,
                 oonaPromosKey: ssmKey,
               });
               totalOonaAmount += amount;
@@ -137,7 +142,7 @@ const applyOonaPricingForV2 = async (params) => {
           ) {
             const amount = oonaUtil.applyOonaSmartDelayPricing({
               settlementInfo: item,
-              pricingData: oonaPriceList,
+              pricingData: oonaPricingConfig,
               version: 'v2',
             });
             totalOonaAmount += amount;

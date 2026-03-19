@@ -1,13 +1,13 @@
 #!/bin/bash
 
 echo "Waiting for MongoDB inside Docker to be ready..."
-until mongosh "mongodb://fake-mongo:27017/test-db" --eval "db.stats()" > /dev/null 2>&1; do
+until mongosh "mongodb://fake-mongo-payment-management:27017/test-db" --eval "db.stats()" > /dev/null 2>&1; do
   sleep 2
 done
 
 echo "MongoDB is ready."
 
-mongosh "mongodb://fake-mongo:27017/test-db" <<EOF
+mongosh "mongodb://fake-mongo-payment-management:27017/test-db" <<EOF
 
 print("Creating 'CustomerPayment' collection...");
 

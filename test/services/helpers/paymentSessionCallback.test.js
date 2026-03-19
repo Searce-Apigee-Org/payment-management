@@ -1,42 +1,115 @@
-import {
-  processBuyLoad,
-  processBuyRoaming,
-  processBuyVoucher,
-  processCreatePolicy,
-  processCSPayment,
-  processECPay,
-  processPrepaidFiberRepairOrders,
-  processPrepaidFiberServiceOrders,
-  processPurchasePromo,
-  processVolumeBoost,
-  resolveDropinStatus,
-  sendPaymentNotificationEmail,
-  triggerGlobeCallback,
-} from '../../../src/services/helpers/paymentSessionCallback.js';
-
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Decimal from 'decimal.js';
+import esmock from 'esmock';
 import sinon from 'sinon';
 import { buildMockPaymentEntity } from '../../mocks/paymentSessionCallbackMocks.js';
 
 const lab = Lab.script();
-const { describe, it, afterEach } = lab;
+const { describe, it, afterEach, before } = lab;
 export { lab };
+
+const DEFAULT_MIGRATED_LAMBDAS = [
+  'PaymentStatusCallback',
+  'PaymentSendEmail',
+  'ProcessCSPayment',
+  'BuyLoad',
+  'PurchasePromo',
+  'CreatePromoVouchers',
+  'ECPayProcessTransaction',
+  'PrepaidFiberServiceOrders',
+  'PrepaidFiberRepairOrders',
+  'CreatePolicy',
+];
+
+const buildLambdaConfig = ({ migratedLambdas } = {}) => ({
+  migratedLambdas,
+  paymentStatusCallback: { name: 'PaymentStatusCallback' },
+  paymentSendEmail: { name: 'PaymentSendEmail' },
+  processCSPayment: { name: 'ProcessCSPayment' },
+  buyLoad: { name: 'BuyLoad' },
+  purchasePromo: { name: 'PurchasePromo' },
+  createPromoVouchers: { name: 'CreatePromoVouchers' },
+  ecPayProcessTransaction: { name: 'ECPayProcessTransaction' },
+  prepaidFiberServiceOrders: { name: 'PrepaidFiberServiceOrders' },
+  prepaidFiberRepairOrders: { name: 'PrepaidFiberRepairOrders' },
+  createPolicy: { name: 'CreatePolicy' },
+});
+
+const loadPaymentSessionCallbackHelper = async (
+  { migratedLambdas = DEFAULT_MIGRATED_LAMBDAS } = {
+    migratedLambdas: DEFAULT_MIGRATED_LAMBDAS,
+  }
+) => {
+  return esmock('../../../src/services/helpers/paymentSessionCallback.js', {
+    '../../../convict/config.js': {
+      config: {
+        get: (key) => {
+          if (key !== 'lambda') {
+            throw new Error(`Unexpected config.get('${key}') call in test`);
+          }
+
+          return buildLambdaConfig({ migratedLambdas });
+        },
+      },
+    },
+  });
+};
+
+const loadPaymentSessionCallbackWithClassificationSpies = async (
+  classificationSpies,
+  { migratedLambdas = DEFAULT_MIGRATED_LAMBDAS } = {
+    migratedLambdas: DEFAULT_MIGRATED_LAMBDAS,
+  }
+) => {
+  return esmock('../../../src/services/helpers/paymentSessionCallback.js', {
+    '../../../convict/config.js': {
+      config: {
+        get: (key) => {
+          if (key !== 'lambda') {
+            throw new Error(`Unexpected config.get('${key}') call in test`);
+          }
+
+          return buildLambdaConfig({ migratedLambdas });
+        },
+      },
+    },
+    '../../../src/util/index.js': {
+      callbackClassificationUtil: classificationSpies,
+      callbackUtil: {},
+      constants: {},
+      stringUtil: {},
+    },
+  });
+};
+
+let paymentSessionCallback;
+
+before(async () => {
+  paymentSessionCallback = await loadPaymentSessionCallbackHelper();
+});
 
 const buildReq = ({ payload, appCxsOverrides = {} } = {}) => {
   const notificationPayload =
     payload?.notification?.payload || payload?.payload?.notification?.payload;
+
+  const paymentId =
+    payload?.notification?.paymentId ||
+    payload?.payload?.notification?.paymentId ||
+    notificationPayload?.paymentId ||
+    'PAYMENT_ID_1';
 
   return {
     payload: {
       notification: {
         name:
           payload?.notification?.name || payload?.payload?.notification?.name,
+        paymentId,
         payload: {
           paymentMethods: [],
           storedPaymentMethods: [],
           actions: [],
+          paymentId,
           ...notificationPayload,
         },
       },
@@ -73,7 +146,19 @@ const buildReq = ({ payload, appCxsOverrides = {} } = {}) => {
       handlePaymentStatusCallback: sinon.stub(),
     },
 
-    helpers: {
+    serviceHelpers: {
+      lambdaService: {
+        paymentStatusCallbackLambda: sinon.stub().resolves(),
+        paymentSendEmailLambda: sinon.stub().resolves(),
+        processCSPaymentLambda: sinon.stub().resolves(),
+        buyLoadLambda: sinon.stub().resolves(),
+        purchasePromoLambda: sinon.stub().resolves(),
+        createPromoVouchersLambda: sinon.stub().resolves(),
+        ecPayProcessTransactionLambda: sinon.stub().resolves(),
+        prepaidFiberServiceOrdersLambda: sinon.stub().resolves(),
+        prepaidFiberRepairOrdersLambda: sinon.stub().resolves(),
+        createPolicyLambda: sinon.stub().resolves(),
+      },
       paymentSessionCallback: {
         setPaymentStatus: sinon.stub().resolves(),
         tiggerGlobeCallback: sinon.stub().resolves(),
@@ -92,6 +177,8 @@ const buildReq = ({ payload, appCxsOverrides = {} } = {}) => {
         processBuyRoaming: sinon.stub(),
       },
     },
+
+    invokeLambda: sinon.stub().resolves(),
   };
 };
 
@@ -111,7 +198,7 @@ describe('Repositroy :: paymentSessionCallback :: processBuyRoaming', () => {
       },
     };
 
-    processBuyRoaming(req, false);
+    paymentSessionCallback.processBuyRoaming(req, false);
 
     expect(
       req.cxs.productOrderingRepository.buyRoamingAsync.callCount
@@ -131,7 +218,7 @@ describe('Repositroy :: paymentSessionCallback :: processBuyRoaming', () => {
       },
     };
 
-    processBuyRoaming(req, true);
+    paymentSessionCallback.processBuyRoaming(req, true);
 
     expect(
       req.cxs.productOrderingRepository.buyRoamingAsync.callCount
@@ -141,6 +228,222 @@ describe('Repositroy :: paymentSessionCallback :: processBuyRoaming', () => {
     ).to.equal({
       a: 1,
     });
+  });
+});
+
+describe('Repositroy :: paymentSessionCallback :: setPaymentStatus', () => {
+  afterEach(() => sinon.restore());
+
+  it('sets status and fills empty statusRemarks without processing classifications when toProcess is false', async () => {
+    const paymentDetails = buildMockPaymentEntity('BuyLoad');
+
+    // add a second settlement without statusRemarks so it gets populated
+    paymentDetails.settlementDetails.push({
+      accountNumber: 'ACC2',
+      transactions: [],
+    });
+
+    const req = buildReq();
+
+    const status = 'FAILED';
+    const refusalReason = 'Some refusal reason';
+
+    const classificationSpies = {
+      classifyByRequestType: sinon.spy(),
+      classifyNonTransactionalRequests: sinon.spy(),
+      classifyRequestForGFP: sinon.spy(),
+      classifyRequestForChangeSim: sinon.spy(),
+    };
+
+    const paymentSessionCallbackWithSpies =
+      await loadPaymentSessionCallbackWithClassificationSpies(
+        classificationSpies
+      );
+
+    await paymentSessionCallbackWithSpies.setPaymentStatus(
+      status,
+      refusalReason,
+      'description',
+      'errorCode',
+      paymentDetails,
+      false,
+      req
+    );
+
+    expect(paymentDetails.settlementDetails[0].status).to.equal(status);
+    expect(paymentDetails.settlementDetails[1].status).to.equal(status);
+
+    // first settlement had remarks from mock, so should keep original
+    expect(paymentDetails.settlementDetails[0].statusRemarks).to.equal(
+      'remarks'
+    );
+    // second had no remarks, should be filled with refusalReason
+    expect(paymentDetails.settlementDetails[1].statusRemarks).to.equal(
+      refusalReason
+    );
+
+    expect(classificationSpies.classifyByRequestType.called).to.equal(false);
+    expect(
+      classificationSpies.classifyNonTransactionalRequests.called
+    ).to.equal(false);
+    expect(classificationSpies.classifyRequestForGFP.called).to.equal(false);
+    expect(classificationSpies.classifyRequestForChangeSim.called).to.equal(
+      false
+    );
+  });
+
+  it('when settlement has transactions: calls classifyByRequestType and classifyRequestForChangeSim', async () => {
+    const paymentDetails = buildMockPaymentEntity('BuyLoad_Txn', {
+      channelId: 'CH1',
+      paymentType: 'GCASH',
+    });
+
+    const req = buildReq();
+
+    const classificationSpies = {
+      classifyByRequestType: sinon.spy(),
+      classifyNonTransactionalRequests: sinon.spy(),
+      classifyRequestForGFP: sinon.spy(),
+      classifyRequestForChangeSim: sinon.spy(),
+    };
+
+    const paymentSessionCallbackWithSpies =
+      await loadPaymentSessionCallbackWithClassificationSpies(
+        classificationSpies
+      );
+
+    await paymentSessionCallbackWithSpies.setPaymentStatus(
+      'SUCCESS',
+      'Reason',
+      'description',
+      'errorCode',
+      paymentDetails,
+      true,
+      req
+    );
+
+    expect(classificationSpies.classifyByRequestType.calledOnce).to.equal(true);
+    const settlement = paymentDetails.settlementDetails[0];
+    expect(classificationSpies.classifyByRequestType.firstCall.args).to.equal([
+      paymentDetails.tokenPaymentId,
+      settlement,
+      req,
+      'CH1',
+      'GCASH',
+    ]);
+
+    expect(
+      classificationSpies.classifyNonTransactionalRequests.called
+    ).to.equal(false);
+
+    expect(classificationSpies.classifyRequestForChangeSim.calledOnce).to.equal(
+      true
+    );
+    expect(
+      classificationSpies.classifyRequestForChangeSim.firstCall.args
+    ).to.equal([settlement, paymentDetails, req]);
+  });
+
+  it('when settlement has no transactions: calls classifyNonTransactionalRequests and classifyRequestForChangeSim', async () => {
+    const paymentDetails = buildMockPaymentEntity('BuyLoad', {
+      channelId: 'CH2',
+      paymentType: 'GCASH',
+    });
+
+    // force transactions to be empty to hit non-transactional path
+    paymentDetails.settlementDetails[0].transactions = [];
+
+    const req = buildReq();
+
+    const classificationSpies = {
+      classifyByRequestType: sinon.spy(),
+      classifyNonTransactionalRequests: sinon.spy(),
+      classifyRequestForGFP: sinon.spy(),
+      classifyRequestForChangeSim: sinon.spy(),
+    };
+
+    const paymentSessionCallbackWithSpies =
+      await loadPaymentSessionCallbackWithClassificationSpies(
+        classificationSpies
+      );
+
+    await paymentSessionCallbackWithSpies.setPaymentStatus(
+      'SUCCESS',
+      'Reason',
+      'description',
+      'errorCode',
+      paymentDetails,
+      true,
+      req
+    );
+
+    expect(classificationSpies.classifyByRequestType.called).to.equal(false);
+
+    const settlement = paymentDetails.settlementDetails[0];
+    expect(
+      classificationSpies.classifyNonTransactionalRequests.calledOnce
+    ).to.equal(true);
+    expect(
+      classificationSpies.classifyNonTransactionalRequests.firstCall.args
+    ).to.equal([paymentDetails.tokenPaymentId, settlement, req]);
+
+    expect(classificationSpies.classifyRequestForChangeSim.calledOnce).to.equal(
+      true
+    );
+    expect(
+      classificationSpies.classifyRequestForChangeSim.firstCall.args
+    ).to.equal([settlement, paymentDetails, req]);
+  });
+
+  it('when settlement has createOrderExternal: additionally calls classifyRequestForGFP', async () => {
+    const paymentDetails = buildMockPaymentEntity('BuyLoad', {
+      channelId: 'CH3',
+      paymentType: 'GCASH',
+    });
+
+    // non-transactional settlement with GFP flag
+    paymentDetails.settlementDetails[0].transactions = [];
+    paymentDetails.settlementDetails[0].createOrderExternal = true;
+
+    const req = buildReq();
+
+    const classificationSpies = {
+      classifyByRequestType: sinon.spy(),
+      classifyNonTransactionalRequests: sinon.spy(),
+      classifyRequestForGFP: sinon.spy(),
+      classifyRequestForChangeSim: sinon.spy(),
+    };
+
+    const paymentSessionCallbackWithSpies =
+      await loadPaymentSessionCallbackWithClassificationSpies(
+        classificationSpies
+      );
+
+    await paymentSessionCallbackWithSpies.setPaymentStatus(
+      'SUCCESS',
+      'Reason',
+      'description',
+      'errorCode',
+      paymentDetails,
+      true,
+      req
+    );
+
+    const settlement = paymentDetails.settlementDetails[0];
+
+    expect(
+      classificationSpies.classifyNonTransactionalRequests.calledOnce
+    ).to.equal(true);
+    expect(classificationSpies.classifyRequestForGFP.calledOnce).to.equal(true);
+    expect(classificationSpies.classifyRequestForGFP.firstCall.args).to.equal([
+      settlement,
+      paymentDetails.tokenPaymentId,
+      req,
+    ]);
+
+    expect(classificationSpies.classifyRequestForChangeSim.calledOnce).to.equal(
+      true
+    );
   });
 });
 
@@ -165,7 +468,7 @@ describe('Repositroy :: paymentSessionCallback :: processCreatePolicy', () => {
       budgetProtectProfile: { chargeAmount: '2.5' },
     });
 
-    processCreatePolicy(paymentDetails, req);
+    paymentSessionCallback.processCreatePolicy(paymentDetails, req);
 
     expect(req.app.cxs.accountsForCreatePolicy[0].successAmount).to.equal(
       new Decimal(10).add(new Decimal('2.5')).toNumber()
@@ -197,7 +500,7 @@ describe('Repositroy :: paymentSessionCallback :: processCreatePolicy', () => {
       budgetProtectProfile: null,
     });
 
-    processCreatePolicy(paymentDetails, req);
+    paymentSessionCallback.processCreatePolicy(paymentDetails, req);
 
     expect(req.app.cxs.accountsForCreatePolicy[0].successAmount).to.equal(10);
     expect(req.app.cxs.accountsForCreatePolicy[1].successAmount).to.equal(20);
@@ -216,7 +519,7 @@ describe('Repositroy :: paymentSessionCallback :: processCSPayment', () => {
     req.cxs = {
       paymentManagementRepository: { processCSPaymentAsync: sinon.spy() },
     };
-    processCSPayment(req);
+    paymentSessionCallback.processCSPayment(req);
     expect(
       req.cxs.paymentManagementRepository.processCSPaymentAsync.callCount
     ).to.equal(2);
@@ -227,7 +530,7 @@ describe('Repositroy :: paymentSessionCallback :: processBuyLoad', () => {
   it('invokes async per account', () => {
     const req = buildReq({ appCxsOverrides: { accountsForBuyLoad: [{}, {}] } });
     req.cxs = { paymentManagementRepository: { buyLoadAsync: sinon.spy() } };
-    processBuyLoad(req);
+    paymentSessionCallback.processBuyLoad(req);
     expect(req.cxs.paymentManagementRepository.buyLoadAsync.callCount).to.equal(
       2
     );
@@ -250,7 +553,7 @@ describe('Repositroy :: paymentSessionCallback :: processPrepaidFiberRepairOrder
       },
     };
 
-    processPrepaidFiberRepairOrders(req);
+    paymentSessionCallback.processPrepaidFiberRepairOrders(req);
 
     expect(
       req.cxs.workforceManagementRepository.prepaidFiberRepairOrderAsync
@@ -280,7 +583,7 @@ describe('Repositroy :: paymentSessionCallback :: processPrepaidFiberServiceOrde
       },
     };
 
-    processPrepaidFiberServiceOrders(req);
+    paymentSessionCallback.processPrepaidFiberServiceOrders(req);
 
     expect(
       req.cxs.serviceOrderingRepository.prepaidFiberServiceOrderAsync.callCount
@@ -309,7 +612,7 @@ describe('Repositroy :: paymentSessionCallback :: processECPay', () => {
       },
     };
 
-    processECPay(req);
+    paymentSessionCallback.processECPay(req);
 
     expect(req.cxs.ecpayRepository.ecPayAsync.callCount).to.equal(2);
 
@@ -335,7 +638,7 @@ describe('Repositroy :: paymentSessionCallback :: processVolumeBoost', () => {
       },
     };
 
-    processVolumeBoost(req);
+    paymentSessionCallback.processVolumeBoost(req);
 
     expect(
       req.cxs.productOrderingRepository.volumeBoostAsync.callCount
@@ -363,7 +666,7 @@ describe('Repositroy :: paymentSessionCallback :: processPurchasePromo', () => {
       },
     };
 
-    processPurchasePromo(req);
+    paymentSessionCallback.processPurchasePromo(req);
 
     expect(
       req.cxs.productOrderingRepository.purchasePromoAsync.callCount
@@ -391,7 +694,7 @@ describe('Repositroy :: paymentSessionCallback :: processBuyVoucher', () => {
       },
     };
 
-    processBuyVoucher(req);
+    paymentSessionCallback.processBuyVoucher(req);
 
     expect(
       req.cxs.paymentMethodsRepository.processBuyVoucherAsync.callCount
@@ -413,7 +716,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
 
     const req = buildReq();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(false);
   });
@@ -425,7 +731,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
 
     const req = buildReq();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(false);
   });
@@ -438,7 +747,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
 
     const req = buildReq();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(false);
   });
@@ -459,7 +771,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
     const req = buildReq();
     req.mongo.customerPaymentsRepository.create.resetHistory();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(true);
 
@@ -485,7 +800,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
     const req = buildReq();
     req.mongo.customerPaymentsRepository.create.resetHistory();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(true);
     expect(req.mongo.customerPaymentsRepository.create.called).to.equal(false);
@@ -508,7 +826,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
     const req = buildReq();
     req.mongo.customerPaymentsRepository.create.resetHistory();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(false);
 
@@ -534,7 +855,10 @@ describe('Repositroy :: paymentSessionCallback :: resolveDropinStatus', () => {
     const req = buildReq();
     req.mongo.customerPaymentsRepository.create.resetHistory();
 
-    const result = await resolveDropinStatus(paymentDetails, req);
+    const result = await paymentSessionCallback.resolveDropinStatus(
+      paymentDetails,
+      req
+    );
 
     expect(result).to.equal(false);
     expect(req.mongo.customerPaymentsRepository.create.calledOnce).to.equal(
@@ -559,7 +883,10 @@ describe('Repositroy :: paymentSessionCallback :: sendPaymentNotificationEmail',
       },
     };
 
-    await sendPaymentNotificationEmail(paymentDetails, req);
+    await paymentSessionCallback.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
 
     expect(
       req.cxs.communcationsRepository.sendPaymentsEmailAsync.called
@@ -579,7 +906,10 @@ describe('Repositroy :: paymentSessionCallback :: sendPaymentNotificationEmail',
       },
     };
 
-    await sendPaymentNotificationEmail(paymentDetails, req);
+    await paymentSessionCallback.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
 
     expect(
       req.cxs.communcationsRepository.sendPaymentsEmailAsync.called
@@ -603,7 +933,10 @@ describe('Repositroy :: paymentSessionCallback :: sendPaymentNotificationEmail',
       },
     };
 
-    await sendPaymentNotificationEmail(paymentDetails, req);
+    await paymentSessionCallback.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
 
     expect(
       req.cxs.communcationsRepository.sendPaymentsEmailAsync.calledOnce
@@ -635,7 +968,10 @@ describe('Repositroy :: paymentSessionCallback :: sendPaymentNotificationEmail',
       },
     };
 
-    await sendPaymentNotificationEmail(paymentDetails, req);
+    await paymentSessionCallback.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
 
     const payload =
       req.cxs.communcationsRepository.sendPaymentsEmailAsync.firstCall.args[1];
@@ -660,7 +996,10 @@ describe('Repositroy :: paymentSessionCallback :: sendPaymentNotificationEmail',
       },
     };
 
-    await sendPaymentNotificationEmail(paymentDetails, req);
+    await paymentSessionCallback.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
 
     const payload =
       req.cxs.communcationsRepository.sendPaymentsEmailAsync.firstCall.args[1];
@@ -683,12 +1022,63 @@ describe('Repositroy :: paymentSessionCallback :: sendPaymentNotificationEmail',
       },
     };
 
-    await sendPaymentNotificationEmail(paymentDetails, req);
+    await paymentSessionCallback.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
 
     const payload =
       req.cxs.communcationsRepository.sendPaymentsEmailAsync.firstCall.args[1];
 
     expect(payload.ipAddress).to.equal(null);
+  });
+
+  it('when lambda is NOT migrated: invokes AWS lambdaService.paymentSendEmailLambda', async () => {
+    const paymentSessionCallbackNonMigrated =
+      await loadPaymentSessionCallbackHelper({
+        migratedLambdas: [],
+      });
+
+    const paymentDetails = buildMockPaymentEntity('BuyESIM', {
+      paymentType: 'GCASH',
+      settlementDetails: [{ requestType: 'BuyESIM' }],
+    });
+
+    const req = buildReq({
+      payload: {
+        notification: {
+          payload: {
+            paymentId: 'PAYID_123',
+          },
+        },
+      },
+    });
+    req.headers = { 'true-client-ip': '1.1.1.1' };
+
+    req.cxs = {
+      communcationsRepository: {
+        sendPaymentsEmailAsync: sinon.spy(),
+      },
+    };
+
+    await paymentSessionCallbackNonMigrated.sendPaymentNotificationEmail(
+      paymentDetails,
+      req
+    );
+
+    expect(
+      req.serviceHelpers.lambdaService.paymentSendEmailLambda.calledOnce
+    ).to.equal(true);
+    expect(
+      req.cxs.communcationsRepository.sendPaymentsEmailAsync.called
+    ).to.equal(false);
+
+    const lambdaArgs =
+      req.serviceHelpers.lambdaService.paymentSendEmailLambda.firstCall.args[0];
+    expect(lambdaArgs.payload).to.equal({
+      tokenPaymentId: 'PAYID_123',
+      ipAddress: '1.1.1.1',
+    });
   });
 });
 
@@ -698,7 +1088,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
   it('returns early when tokenPaymentId prefix is NOT GOR or GLE', async () => {
     const req = buildReq();
 
-    req.payload.notification.paymentId = 'ABC123';
+    req.payload.notification.payload.paymentId = 'ABC123';
 
     req.cxs = {
       paymentManagementRepository: {
@@ -711,7 +1101,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
       channelId: 'CH1',
     });
 
-    await triggerGlobeCallback(paymentDetails, req);
+    await paymentSessionCallback.triggerGlobeCallback(paymentDetails, req);
 
     expect(
       req.cxs.paymentManagementRepository.paymentStatusCallbackAsync.called
@@ -720,7 +1110,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
 
   it('invokes globe callback for non-CARD payment when prefix is GOR', async () => {
     const req = buildReq();
-    req.payload.notification.paymentId = 'GOR123456';
+    req.payload.notification.payload.paymentId = 'GOR123456';
 
     req.cxs = {
       paymentManagementRepository: {
@@ -733,7 +1123,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
       channelId: 'CH1',
     });
 
-    await triggerGlobeCallback(paymentDetails, req);
+    await paymentSessionCallback.triggerGlobeCallback(paymentDetails, req);
 
     expect(
       req.cxs.paymentManagementRepository.paymentStatusCallbackAsync.calledOnce
@@ -748,7 +1138,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
 
   it('invokes globe callback for non-CARD payment when prefix is GLE', async () => {
     const req = buildReq();
-    req.payload.notification.paymentId = 'GLE987654';
+    req.payload.notification.payload.paymentId = 'GLE987654';
 
     req.cxs = {
       paymentManagementRepository: {
@@ -761,7 +1151,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
       channelId: 'CH9',
     });
 
-    await triggerGlobeCallback(paymentDetails, req);
+    await paymentSessionCallback.triggerGlobeCallback(paymentDetails, req);
 
     expect(
       req.cxs.paymentManagementRepository.paymentStatusCallbackAsync.calledOnce
@@ -770,7 +1160,7 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
 
   it('throws when underlying logic throws', async () => {
     const req = buildReq();
-    req.payload.notification.paymentId = 'GOR000000';
+    req.payload.notification.payload.paymentId = 'GOR000000';
 
     req.cxs = null;
 
@@ -780,9 +1170,104 @@ describe('Repositroy :: paymentSessionCallback :: triggerGlobeCallback', () => {
     });
 
     try {
-      await triggerGlobeCallback(paymentDetails, req);
+      await paymentSessionCallback.triggerGlobeCallback(paymentDetails, req);
     } catch (err) {
       expect(err).to.be.instanceOf(Error);
     }
+  });
+
+  it('when lambda is NOT migrated: invokes AWS lambdaService.paymentStatusCallbackLambda for non-CARD', async () => {
+    const paymentSessionCallbackNonMigrated =
+      await loadPaymentSessionCallbackHelper({
+        migratedLambdas: [],
+      });
+
+    const req = buildReq({
+      payload: {
+        notification: {
+          paymentId: 'GOR123456',
+          payload: {
+            paymentId: 'GOR123456',
+            accounts: [{ accountNumber: '123', status: 'SUCCESS' }],
+          },
+        },
+      },
+    });
+
+    req.cxs = {
+      paymentManagementRepository: {
+        paymentStatusCallbackAsync: sinon.spy(),
+      },
+    };
+
+    const paymentDetails = buildMockPaymentEntity('BuyLoad', {
+      paymentType: 'GCASH',
+      channelId: 'CH1',
+    });
+
+    await paymentSessionCallbackNonMigrated.triggerGlobeCallback(
+      paymentDetails,
+      req
+    );
+
+    expect(
+      req.serviceHelpers.lambdaService.paymentStatusCallbackLambda.calledOnce
+    ).to.equal(true);
+    expect(
+      req.cxs.paymentManagementRepository.paymentStatusCallbackAsync.called
+    ).to.equal(false);
+  });
+
+  it('when paymentType is CARD and lambda is migrated: uses CARD transformer payload and invokes GCP repo', async () => {
+    const paymentSessionCallbackMigrated =
+      await loadPaymentSessionCallbackHelper({
+        migratedLambdas: DEFAULT_MIGRATED_LAMBDAS,
+      });
+
+    const req = buildReq({
+      payload: {
+        notification: {
+          paymentId: 'GOR123456',
+          payload: {
+            paymentId: 'GOR123456',
+            status: 'SUCCESS',
+          },
+        },
+      },
+    });
+
+    req.cxs = {
+      paymentManagementRepository: {
+        paymentStatusCallbackAsync: sinon.spy(),
+      },
+    };
+
+    const paymentDetails = buildMockPaymentEntity('BuyLoad', {
+      paymentType: 'CARD',
+      channelId: 'CH1',
+      settlementDetails: [
+        { accountNumber: 'ACC1', transactions: [] },
+        { mobileNumber: '0917', transactions: [] },
+      ],
+    });
+
+    await paymentSessionCallbackMigrated.triggerGlobeCallback(
+      paymentDetails,
+      req
+    );
+
+    expect(
+      req.cxs.paymentManagementRepository.paymentStatusCallbackAsync.calledOnce
+    ).to.equal(true);
+
+    const payload =
+      req.cxs.paymentManagementRepository.paymentStatusCallbackAsync.firstCall
+        .args[1];
+
+    expect(payload.tokenPaymentId).to.equal('GOR123456');
+    expect(payload.paymentAccounts).to.equal([
+      { accountNumber: 'ACC1', paymentStatus: 'SUCCESS' },
+      { accountNumber: '0917', paymentStatus: 'SUCCESS' },
+    ]);
   });
 });

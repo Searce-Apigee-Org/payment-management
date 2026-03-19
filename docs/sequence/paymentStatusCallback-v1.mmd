@@ -1,0 +1,47 @@
+sequenceDiagram
+    title PaymentStatusCallback
+
+    participant Consumer
+    participant CXS
+    participant GCP
+    participant Magento
+
+    Consumer->CXS: PaymentStatusCallback
+
+    activate Consumer
+    activate CXS
+
+    note right of Consumer:Body:\n channelId\n tokenPaymentId\n paymentStatusRemarks\n paymentAccounts[]
+
+    CXS->CXS: Validate request
+
+    alt channelId = GOR
+
+    CXS->GCP: UpdatePaymentStatus
+
+    activate GCP
+
+    CXS<--GCP: UpdatePaymentStatus
+
+    deactivate GCP
+
+    else
+
+    CXS->Magento: UpdatePaymentStatus
+
+    activate Magento
+
+    CXS<--Magento: UpdatePaymentStatus
+
+    deactivate Magento
+
+    end
+
+    alt GCP/Magento Response !== 200
+    Consumer<--CXS: Return custom 400/500 HTTP response
+    end
+
+    Consumer<--CXS: PaymentStatusCallback
+
+    deactivate CXS
+    deactivate Consumer

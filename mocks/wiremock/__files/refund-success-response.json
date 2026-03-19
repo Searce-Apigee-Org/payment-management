@@ -1,3 +1,5 @@
 {
-  "statusCode": 202
+  "result": {
+    "statusCode": 202
+  }
 }

@@ -76,8 +76,10 @@ describe('Utils :: paymentSessionCallback :: buyLoadRequest', () => {
 
     const res = buyLoadRequest(txn, 'TPID', '0917');
 
-    expect(res.agentName).to.equal(null);
-    expect(res.externalTransactionId).to.equal(null);
+    // When optional fields are missing, they should be omitted (undefined),
+    // not explicitly set to null, so downstream Joi string() validation is not violated.
+    expect(res.agentName).to.equal(undefined);
+    expect(res.externalTransactionId).to.equal(undefined);
   });
 });
 

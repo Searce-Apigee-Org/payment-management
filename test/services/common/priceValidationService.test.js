@@ -2,6 +2,7 @@ import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Sinon from 'sinon';
 
+import { config } from '../../../convict/config.js';
 import {
   validateServiceIdPrice,
   validateSettlementAmountVoucher,
@@ -36,6 +37,49 @@ describe('Service :: common :: priceValidationService :: validateServiceIdPrice'
     transactions: [{ serviceId: 'SERVICE123', param: 'A1', amount: 100 }],
   };
 
+  it('should validate BUY_VOUCHER using voucherCategory + amount (param ignored)', async () => {
+    const settlement = {
+      amount: 10,
+      transactions: [
+        {
+          voucherCategory: 'SA3MSWIPE',
+          serviceNumber: '1200001503',
+          amount: 10,
+        },
+      ],
+    };
+
+    mockReq.gcs.buyPromoServiceRepository.getResult.resolves([
+      // Note: catalog can have any param value; BuyVoucher validation ignores it
+      { serviceID: 'SA3MSWIPE', param: '849', price: '10', mm: '0' },
+    ]);
+
+    await expect(
+      validateServiceIdPrice(settlement, mockReq, 'BUY_VOUCHER')
+    ).to.not.reject();
+  });
+
+  it('should reject BUY_VOUCHER when voucherCategory + amount is not found in GCS data', async () => {
+    const settlement = {
+      amount: 10,
+      transactions: [
+        {
+          voucherCategory: 'SA3MSWIPE',
+          serviceNumber: '1200001503',
+          amount: 10,
+        },
+      ],
+    };
+
+    mockReq.gcs.buyPromoServiceRepository.getResult.resolves([
+      { serviceID: 'SA3MSWIPE', param: '849', price: '11', mm: '0' },
+    ]);
+
+    await expect(
+      validateServiceIdPrice(settlement, mockReq, 'BUY_VOUCHER')
+    ).to.reject();
+  });
+
   it('should pass when a valid match is found in GCS data', async () => {
     const gcsData = [
       { serviceID: 'SERVICE123', param: 'A1', price: '100', mm: '1' },
@@ -68,7 +112,59 @@ describe('Service :: common :: priceValidationService :: validateServiceIdPrice'
 
     await expect(
       validateServiceIdPrice(validSettlement, mockReq, 'BUY_PROMO')
-    ).to.reject();
+    ).to.not.reject();
+  });
+
+  it('should allow (PERMISSIVE) when mm includes 1 and log eligibility skipped', async () => {
+    // Default config is PERMISSIVE; we just assert it does not reject.
+    const gcsData = [
+      { serviceID: 'SERVICE123', param: 'A1', price: '100', mm: '1' },
+    ];
+    mockReq.gcs.buyPromoServiceRepository.getResult.resolves(gcsData);
+
+    await expect(
+      validateServiceIdPrice(validSettlement, mockReq, 'BUY_PROMO')
+    ).to.not.reject();
+  });
+
+  it('should reject (FAIL_CLOSED) when mm includes 1 and policy is FAIL_CLOSED', async () => {
+    const previousPolicy = config.get('promoEligibility.policy');
+    config.set('promoEligibility.policy', 'FAIL_CLOSED');
+
+    try {
+      const gcsData = [
+        { serviceID: 'SERVICE123', param: 'A1', price: '100', mm: '1' },
+      ];
+      mockReq.gcs.buyPromoServiceRepository.getResult.resolves(gcsData);
+
+      await expect(
+        validateServiceIdPrice(validSettlement, mockReq, 'BUY_PROMO')
+      ).to.reject();
+    } finally {
+      // restore for other tests
+      config.set('promoEligibility.policy', previousPolicy);
+    }
+  });
+
+  it('should only do catalog lookup when keyword is null/undefined (empty string skips)', async () => {
+    const settlement = {
+      amount: 100,
+      transactions: [
+        { serviceId: 'SERVICE123', param: 'A1', amount: 100, keyword: '' },
+      ],
+    };
+
+    mockReq.gcs.buyPromoServiceRepository.getResult.resolves([
+      { serviceID: 'SERVICE123', param: 'A1', price: '100', mm: '1' },
+    ]);
+
+    await expect(
+      validateServiceIdPrice(settlement, mockReq, 'BUY_PROMO')
+    ).to.not.reject();
+
+    expect(
+      mockReq.gcs.buyPromoServiceRepository.getResult.called
+    ).to.be.false();
   });
 });
 
@@ -177,6 +273,21 @@ describe('Service :: common :: priceValidationService :: validateSettlementAmoun
       mockInitVoucher
     );
     mockReq.oneApi.voucherRepository.getVoucherData.resolves(mockVoucherData);
+    mockReq.app.cxsRequest = { settlementInformation: [baseSettlement] };
+
+    await expect(
+      validateSettlementAmountVoucher(baseSettlement, mockReq)
+    ).to.reject();
+  });
+
+  it('should throw InternalOperationFailed when VOUCHER_AUTH_TOKEN is missing', async () => {
+    const mockInitVoucher = {
+      VOUCHER_DISCOUNT_PERCENTAGE_MAX_LIMIT: 20,
+    };
+
+    mockReq.secretManager.paymentServiceRepository.getInitVoucher.resolves(
+      mockInitVoucher
+    );
     mockReq.app.cxsRequest = { settlementInformation: [baseSettlement] };
 
     await expect(

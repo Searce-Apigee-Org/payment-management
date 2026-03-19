@@ -43,12 +43,15 @@ describe('Service :: EsimPaymentSessionCreationService :: createEsimPaymentSessi
           getAccessToken: Sinon.stub(),
           esimPaymentSession: Sinon.stub(),
         },
-      },
-      mongo: {
         customerPaymentsRepository: {
           put: Sinon.stub(),
         },
       },
+      // mongo: {
+      //   customerPaymentsRepository: {
+      //     put: Sinon.stub(),
+      //   },
+      // },
       tokenStore: {
         paymentRepository: {
           fetchAccessTokenByChannel: Sinon.stub(),
@@ -79,7 +82,7 @@ describe('Service :: EsimPaymentSessionCreationService :: createEsimPaymentSessi
     getAccessTokenStub = reqMock.payment.paymentRepository.getAccessToken;
     esimPaymentSessionStub =
       reqMock.payment.paymentRepository.esimPaymentSession;
-    putCustomerPaymentsStub = reqMock.mongo.customerPaymentsRepository.put;
+    putCustomerPaymentsStub = reqMock.payment.customerPaymentsRepository.put;
     fetchAccessTokenByChannelStub =
       reqMock.tokenStore.paymentRepository.fetchAccessTokenByChannel;
     updateAccessTokenByChannelStub =

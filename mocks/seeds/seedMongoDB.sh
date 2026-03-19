@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-MONGO_URI="${MONGO_URI:-mongodb://fake-mongo:27017/test-db}?tls=true"
+MONGO_URI="${MONGO_URI:-mongodb://fake-mongo-payment-management:27017/test-db}"
 CUSTOMER_PAYMENTS_COL="${CXS_MONGO_CUSTOMER_PAYMENTS_TABLE_NAME:-CustomerPayment}"
 
 echo "Waiting for MongoDB at ${MONGO_URI} to be ready..."
@@ -176,6 +176,65 @@ const docs = [
     userToken: "user-uuid-003",
     createdById: "system",
   },
+  {
+    tokenPaymentId: "LOC000123",
+    actions: "charge",
+    channelId: "SuperApp",
+    checkoutUrl: "https://checkout.example.com/session/LOC000123",
+
+    createDate: new Date("2025-03-05T12:00:00Z"),
+    createPaymentSessionError: null,
+    deviceId: "device-003",
+    lastUpdateDate: new Date("2025-03-05T12:20:00Z"),
+
+    merchantAccount: "mock-merchant-id",
+    paymentInformation: JSON.stringify({ currency: "PHP", amount: "99.00", type: "DIRECT_DEBIT", channelCode: "ABC" }),
+    paymentMethods: "xendit_gcash",
+    paymentResult: JSON.stringify({ status: "PAID", reference: "REF654321" }),
+    paymentSession: "sess_003",
+    paymentType: "PtoESIM",
+
+    settlementDetails: [
+      {
+        amount: NumberDecimal("99.00"),
+        appStatus: "SUCCESS",
+        emailAddress: "user3@example.com",
+        mobileNumber: "09170001111",
+        provisionedAmount: NumberDecimal("0.00"),
+        requestType: "BuyESIMLocal",
+        status: "XENDIT_AUTHORISED",
+        statusRemarks: "Payment successful",
+
+        transactions: [
+          {
+            amount: NumberDecimal("99.00"),
+            keyword: "ESIM",
+            parameterName: "voucher",
+            provisionStatus: "FAILED",
+            questInd: null,
+            serviceId: "SA-UESIMGP",
+            transactionId: "txn_003",
+            voucherCategoryName: "ESIM",
+            voucherDetails: {
+              contentPartner: "Gcash",
+              paidAmount: NumberDecimal("99.00"),
+              serialNumber: "SN-003",
+              validFrom: new Date("2025-03-05T00:00:00Z"),
+              validTo: new Date("2025-09-05T00:00:00Z"),
+              voucherCode: "VCHR-003",
+              voucherDescription: "Promo voucher",
+            },
+          },
+        ],
+
+        transactionType: "SALE",
+      },
+    ],
+
+    storedPaymentMethods: "pm_gcash_token_xyz",
+    userToken: "user-uuid-003",
+    createdById: "system",
+  }
 ];
 
 docs.forEach((doc) => {

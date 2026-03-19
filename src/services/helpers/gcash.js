@@ -7,6 +7,7 @@ const validateBindingId = async (req, gCashPaymentInfo) => {
     app: { channel },
     headers,
     mongo,
+    payment,
   } = req;
 
   const {
@@ -34,10 +35,12 @@ const validateBindingId = async (req, gCashPaymentInfo) => {
   const decodedUserToken = decodeUserJWT(headers['user-token']);
   const uuid = decodedUserToken?.userJWT?.uuid;
 
+  // Persist payment entity via migratedTables-aware repository (injected under `payment`)
   const bindingPayment =
-    await mongo.bindingPaymentsRepository.findByBindAndUUID(
+    await payment.bindingPaymentsRepository.findByBindAndUUID(
       gCashPaymentInfo.bindingRequestID.trim(),
-      uuid
+      uuid,
+      req
     );
 
   logger.debug('BindingPayment', bindingPayment);

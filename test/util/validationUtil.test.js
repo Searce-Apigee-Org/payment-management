@@ -68,6 +68,12 @@ describe('Util :: PaymentValidationUtil :: isValidEmail', () => {
 });
 
 describe('Util :: PaymentValidationUtil :: validateShopperReference', () => {
+  it('should pass when shopperReference is missing (optional)', () => {
+    const req = { headers: {} };
+    const paymentRequest = { shopperReference: null };
+    expect(() => validateShopperReference(paymentRequest, req)).to.not.throw();
+  });
+
   it('should pass when shopperReference matches uuid from JWT', () => {
     const req = { headers: { 'user-token': REAL_JWT } };
     const paymentRequest = { shopperReference: decoded.userJWT.uuid };
@@ -134,6 +140,67 @@ describe('Util :: PaymentValidationUtil :: validateECPayTransactionEntity', () =
       amountToPay: 100,
     };
     expect(() => validateECPayTransactionEntity(entity)).to.throw();
+  });
+
+  it('should pass when DynamoDB (snake_case) entity matches payload transaction', () => {
+    const entity = {
+      account_number: '65629362',
+      account_identifier: 'MAYNILAD',
+      biller_name: 'MAYNILAD',
+      amount: '1',
+      service_charge: '0',
+    };
+
+    const txn = {
+      accountNumber: '65629362',
+      accountIdentifier: 'MAYNILAD',
+      billerName: 'MAYNILAD',
+      amountToPay: '1',
+      serviceCharge: 0,
+    };
+
+    expect(() => validateECPayTransactionEntity(entity, txn)).to.not.throw();
+  });
+
+  it('should NOT fall back to entity.amount when amountToPay is present as 0', () => {
+    const entity = {
+      account_number: '65629362',
+      account_identifier: 'MAYNILAD',
+      biller_name: 'MAYNILAD',
+      amount_to_pay: 0,
+      amount: 1,
+      service_charge: 0,
+    };
+
+    const txn = {
+      accountNumber: '65629362',
+      accountIdentifier: 'MAYNILAD',
+      billerName: 'MAYNILAD',
+      amountToPay: 0,
+      serviceCharge: 0,
+    };
+
+    expect(() => validateECPayTransactionEntity(entity, txn)).to.not.throw();
+  });
+
+  it('should pass when Mongo (camelCase) entity matches payload transaction', () => {
+    const entity = {
+      accountNumber: '65629362',
+      accountIdentifier: 'MAYNILAD',
+      billerName: 'MAYNILAD',
+      amountToPay: 1,
+      serviceCharge: 0,
+    };
+
+    const txn = {
+      accountNumber: '65629362',
+      accountIdentifier: 'MAYNILAD',
+      billerName: 'MAYNILAD',
+      amountToPay: '1',
+      serviceCharge: '0',
+    };
+
+    expect(() => validateECPayTransactionEntity(entity, txn)).to.not.throw();
   });
 });
 
@@ -282,6 +349,7 @@ describe('Util :: PaymentValidationUtil :: validateSettlementAmount', () => {
 describe('Service :: v1 :: validationService :: validateServiceNumber', () => {
   it('should throw InsufficientParameters when serviceNumber is missing', () => {
     const settlement = {
+      accountNumber: '1234567890',
       transactions: [{ serviceNumber: null }],
     };
 
@@ -311,11 +379,22 @@ describe('Service :: v1 :: validationService :: validateServiceNumber', () => {
 
   it('should pass when serviceNumber exists and mobileNumber is NOT provided', () => {
     const settlement = {
+      accountNumber: '1234567890',
       transactions: [{ serviceNumber: '1234567890' }],
     };
 
     const result = validateServiceNumber(settlement);
 
+    expect(result).to.be.undefined();
+  });
+
+  it('should pass when accountNumber is NOT provided (serviceNumber optional)', () => {
+    const settlement = {
+      mobileNumber: '09171234567',
+      transactions: [{ serviceNumber: null }],
+    };
+
+    const result = validateServiceNumber(settlement);
     expect(result).to.be.undefined();
   });
 });

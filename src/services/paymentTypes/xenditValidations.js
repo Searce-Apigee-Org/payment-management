@@ -39,8 +39,15 @@ const esimXenditValidation = (req) => {
       ]);
       break;
 
-    case constants.PAYMENT_MODES.DIRECT_DEBIT:
+    case constants.PAYMENT_MODES.DIRECT_DEBIT: {
+      // For DIRECT_DEBIT we currently only accept a string user-token header.
+      // The upstream logs show the raw header as a string ("Bearer ..."),
+      // while our internal generic logs show a parsed user-token object
+      // stored separately. To stay aligned with legacy behavior and avoid
+      // confusion, treat only the header value as the source of truth here.
+
       esimUtil.checkRequiredKeys(headers, ['user-token']);
+
       esimUtil.checkRequiredKeys(paymentInformation, [
         constants.PAYMENT_TYPE_KEYS.DIRECT_DEBIT,
         constants.PAYMENT_TYPE_KEYS.CHANNEL_CODE,
@@ -51,6 +58,7 @@ const esimXenditValidation = (req) => {
         constants.PAYMENT_BANKS.RCBC,
       ]);
       break;
+    }
 
     case constants.PAYMENT_MODES.EWALLET:
       esimUtil.checkRequiredKeys(paymentInformation, [

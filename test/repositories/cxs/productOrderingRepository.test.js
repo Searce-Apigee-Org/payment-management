@@ -1,7 +1,8 @@
-import logger from '@globetel/cxs-core/core/logger/logger.js';
+import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Sinon from 'sinon';
+import { config } from '../../../convict/config.js';
 import { productOrderingRepository } from '../../../src/repositories/cxs/index.js';
 
 const lab = Lab.script();
@@ -24,19 +25,31 @@ describe('Repository :: productOrderingRepository :: addQuest', () => {
     httpStub.post.resolves(mockResponse);
 
     const params = { questId: 'Q123', userId: 'U456' };
+
+    const {
+      host,
+      httpProtocol,
+      endpoints: { addQuest: endpoint },
+    } = config.get('cxs.productOrdering');
+
+    const expectedUrl = `${httpProtocol}://${host}/${endpoint}`;
+
     const result = await productOrderingRepository.addQuest(params, httpStub);
 
     expect(result).to.equal(mockResponse);
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [_, calledParams, calledOptions, arg4, arg5] = httpStub.post.args[0];
+    const [url, calledParams, calledOptions, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
+    expect(url).to.equal(expectedUrl);
     expect(calledParams).to.equal(params);
     expect(calledOptions).to.equal({
       headers: { 'Content-Type': 'application/json' },
     });
     expect(arg4).to.be.false();
     expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
   });
 
   it('should throw OperationFailed when http.post fails', async () => {
@@ -78,24 +91,34 @@ describe('Repository :: productOrderingRepository :: purchasePromoAsync', () => 
 
     const payload = { promoId: 'PROMO123' };
 
+    const {
+      host,
+      httpProtocol,
+      endpoints: { purchasePromo: endpoint },
+    } = config.get('cxs.productOrdering');
+
+    const expectedUrl = `${httpProtocol}://${host}/${endpoint}`;
+
     await productOrderingRepository.purchasePromoAsync(req, payload);
 
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [url, calledPayload, options, arg4, arg5] = httpStub.post.args[0];
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
-    expect(url).to.be.a.string();
+    expect(url).to.equal(expectedUrl);
     expect(calledPayload).to.equal(payload);
     expect(options).to.equal({});
     expect(arg4).to.be.false();
     expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
-      infoSpy.calledWith('CXS_PURCHAE_PROMO_ASYNC_REQUEST', payload)
+      infoSpy.calledWith('CXS_PURCHASE_PROMO_ASYNC_REQUEST', payload)
     ).to.be.true();
 
     expect(
-      debugSpy.calledWith('CXS_PURCHAE_PROMO_ASYNC_RESPONSE', mockResponse)
+      debugSpy.calledWith('CXS_PURCHASE_PROMO_ASYNC_RESPONSE', mockResponse)
     ).to.be.true();
   });
 
@@ -108,7 +131,7 @@ describe('Repository :: productOrderingRepository :: purchasePromoAsync', () => 
     });
 
     expect(
-      errorSpy.calledWith('CXS_PURCHAE_PROMO_ASYNC_FAILED', error)
+      errorSpy.calledWith('CXS_PURCHASE_PROMO_ASYNC_FAILED', error)
     ).to.be.true();
   });
 });
@@ -139,14 +162,27 @@ describe('Repository :: productOrderingRepository :: volumeBoostAsync', () => {
 
     const payload = { accountId: 'ACC123' };
 
+    const {
+      host,
+      httpProtocol,
+      endpoints: { purchasePromo: endpoint },
+    } = config.get('cxs.productOrdering');
+
+    const expectedUrl = `${httpProtocol}://${host}/${endpoint}`;
+
     await productOrderingRepository.volumeBoostAsync(req, payload);
 
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [url, calledPayload] = httpStub.post.args[0];
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
-    expect(url).to.be.a.string();
+    expect(url).to.equal(expectedUrl);
     expect(calledPayload).to.equal(payload);
+    expect(options).to.equal({});
+    expect(arg4).to.be.false();
+    expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
       infoSpy.calledWith('CXS_VOLUME_BOOST_ASYNC_REQUEST', payload)
@@ -197,9 +233,27 @@ describe('Repository :: productOrderingRepository :: createPolicyAsync', () => {
 
     const payload = { policyId: 'POL123' };
 
+    const {
+      host,
+      httpProtocol,
+      endpoints: { createPolicy: endpoint },
+    } = config.get('cxs.productOrdering');
+
+    const expectedUrl = `${httpProtocol}://${host}/${endpoint}`;
+
     await productOrderingRepository.createPolicyAsync(req, payload);
 
     expect(httpStub.post.calledOnce).to.be.true();
+
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
+
+    expect(url).to.equal(expectedUrl);
+    expect(calledPayload).to.equal(payload);
+    expect(options).to.equal({});
+    expect(arg4).to.be.false();
+    expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
       infoSpy.calledWith('CXS_CREATE_POLICY_ASYNC_REQUEST', payload)
@@ -250,9 +304,25 @@ describe('Repository :: productOrderingRepository :: buyRoamingAsync', () => {
 
     const payload = { roamingPlanId: 'ROAM123' };
 
+    const {
+      host,
+      httpProtocol,
+      endpoints: { buyRoaming: endpoint },
+    } = config.get('cxs.productOrdering');
+
+    const expectedUrl = `${httpProtocol}://${host}/${endpoint}`;
+
     await productOrderingRepository.buyRoamingAsync(req, payload);
 
     expect(httpStub.post.calledOnce).to.be.true();
+
+    const [url, calledPayload, options, arg4, arg5] = httpStub.post.args[0];
+
+    expect(url).to.equal(expectedUrl);
+    expect(calledPayload).to.equal(payload);
+    expect(options).to.equal({});
+    expect(arg4).to.be.false();
+    expect(arg5).to.be.false();
 
     expect(
       infoSpy.calledWith('CXS_BUY_ROAMING_ASYNC_REQUEST', payload)

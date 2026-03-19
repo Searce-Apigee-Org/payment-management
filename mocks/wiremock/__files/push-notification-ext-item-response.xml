@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:pnm="http://DANATEQ.com/soap/link/pnm/">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <pnm:pushNotificationExtResp>
+            <status>0</status>
+            <notification>
+                <status>0</status>
+                <userIdentity>aaa.bbb@ccc.ddd</userIdentity>
+                <userIdentityType>1</userIdentityType>
+            </notification>
+        </pnm:pushNotificationExtResp>
+    </soapenv:Body>
+</soapenv:Envelope>

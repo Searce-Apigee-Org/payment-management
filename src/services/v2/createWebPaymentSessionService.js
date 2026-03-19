@@ -12,7 +12,7 @@ const createWebPaymentSession = async (req) => {
       app: { principalId },
       payoT2,
       http,
-      mongo,
+      payment, // db call
       serviceHelpers,
       payoT2AuthService,
       oonaService,
@@ -30,6 +30,7 @@ const createWebPaymentSession = async (req) => {
 
     let uuid;
     if (user) {
+      logger.info('User UUID:', user.uuid);
       uuid = user.uuid;
     }
 
@@ -69,14 +70,20 @@ const createWebPaymentSession = async (req) => {
       );
 
     // Prepare data to be added into customer-payments and insert it.
-    await serviceHelpers.webPaymentSessionService.insertWebPaymentSessionToDB({
-      principalId,
-      headers,
-      payload,
-      moment,
-      gPayOWebSessionResponse,
-      mongo,
-    });
+    const toInsert =
+      await serviceHelpers.webPaymentSessionService.insertWebPaymentSessionToDB(
+        {
+          principalId,
+          headers,
+          payload,
+          moment,
+          gPayOWebSessionResponse,
+        }
+      );
+
+    logger.debug('DB_INPUT', toInsert);
+    // Persist payment entity via migratedTables-aware repository (injected under `payment`)
+    await payment.customerPaymentsRepository.create(toInsert, req);
 
     // Return the response of GPayO websession api.
     const res = {

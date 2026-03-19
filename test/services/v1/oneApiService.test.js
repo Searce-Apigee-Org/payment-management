@@ -15,11 +15,17 @@ describe('Service :: v1 :: oneApiService :: useVoucher', () => {
   let oneApi;
   let secretManager;
   let req;
+  let payment;
 
   beforeEach(() => {
     mongo = {
       paymentRepository: {
         findByPaymentId: Sinon.stub(),
+      },
+    };
+    payment = {
+      customerPaymentsRepository: {
+        findOne: Sinon.stub(),
       },
     };
     oneApi = {
@@ -39,6 +45,7 @@ describe('Service :: v1 :: oneApiService :: useVoucher', () => {
       oneApi,
       secretManager,
       secretManagerClient: {},
+      payment,
     };
 
     Sinon.stub(logger, 'debug');
@@ -55,30 +62,31 @@ describe('Service :: v1 :: oneApiService :: useVoucher', () => {
       'access-token'
     );
 
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     oneApi.voucherRepository.updateVoucher.resolves();
 
     await useVoucher(req);
 
-    Sinon.assert.calledOnce(mongo.paymentRepository.findByPaymentId);
+    Sinon.assert.calledOnce(req.payment.customerPaymentsRepository.findOne);
     Sinon.assert.calledWithExactly(
-      mongo.paymentRepository.findByPaymentId,
-      'CXS12345'
+      req.payment.customerPaymentsRepository.findOne,
+      'CXS12345',
+      req
     );
 
-    Sinon.assert.calledOnce(oneApi.voucherRepository.updateVoucher);
+    Sinon.assert.calledOnce(req.oneApi.voucherRepository.updateVoucher);
     Sinon.assert.calledWithExactly(
-      oneApi.voucherRepository.updateVoucher,
+      req.oneApi.voucherRepository.updateVoucher,
       req,
       payments,
       'access-token'
     );
 
     Sinon.assert.calledOnce(
-      secretManager.paymentServiceRepository.getUpdateVoucherAuthToken
+      req.secretManager.paymentServiceRepository.getUpdateVoucherAuthToken
     );
     Sinon.assert.calledWithExactly(
-      secretManager.paymentServiceRepository.getUpdateVoucherAuthToken,
+      req.secretManager.paymentServiceRepository.getUpdateVoucherAuthToken,
       req.secretManagerClient,
       constants.APIS,
       constants.API_NUMBERS.CREATE_PAYMENT_SESSION,
@@ -92,7 +100,7 @@ describe('Service :: v1 :: oneApiService :: useVoucher', () => {
     const err = new Error('update failed');
 
     req.payload.tokenPaymentId = 'CXS-ERR-1';
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     secretManager.paymentServiceRepository.getUpdateVoucherAuthToken.resolves(
       'access-token'
     );
@@ -118,7 +126,7 @@ describe('Service :: v1 :: oneApiService :: useVoucher', () => {
   it('should log and throw OutboundOperationFailed if findByPaymentId fails', async () => {
     const err = new Error('db failed');
     req.payload.tokenPaymentId = 'CXS-ERR-2';
-    mongo.paymentRepository.findByPaymentId.rejects(err);
+    payment.customerPaymentsRepository.findOne.rejects(err);
 
     try {
       await useVoucher(req);
@@ -143,7 +151,7 @@ describe('Service :: v1 :: oneApiService :: useVoucher', () => {
     const err = new Error('secret manager failed');
 
     req.payload.tokenPaymentId = 'CXS-ERR-3';
-    mongo.paymentRepository.findByPaymentId.resolves(payments);
+    payment.customerPaymentsRepository.findOne.resolves(payments);
     secretManager.paymentServiceRepository.getUpdateVoucherAuthToken.rejects(
       err
     );

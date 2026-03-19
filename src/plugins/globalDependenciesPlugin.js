@@ -47,6 +47,18 @@ const globalDependenciesPlugin = {
       paymentRequestService,
       amax,
       paymentRefundHelper,
+      dynamo,
+      gcp,
+      globeOnline,
+      transactions,
+      oneApiService,
+      paymentService,
+      amaxService,
+      productOrderingService,
+      refundService,
+      invokeLambda,
+      channelConfig,
+      raven,
     } = options;
 
     // models
@@ -61,6 +73,7 @@ const globalDependenciesPlugin = {
     server.decorate('request', 'mongo', mongo);
     server.decorate('request', 'gcs', gcs);
     server.decorate('request', 'oneApi', oneApi);
+    server.decorate('request', 'dynamo', dynamo);
     server.decorate('request', 'dno', dno);
     server.decorate('request', 'rudy', rudy);
     server.decorate('request', 'payment', payment);
@@ -68,6 +81,11 @@ const globalDependenciesPlugin = {
     server.decorate('request', 'hip', hip);
     server.decorate('request', 'gor', gor);
     server.decorate('request', 'amax', amax);
+    server.decorate('request', 'gcp', gcp);
+    server.decorate('request', 'globeOnline', globeOnline);
+    server.decorate('request', 'transactions', transactions);
+    server.decorate('request', 'channelConfig', channelConfig);
+    server.decorate('request', 'raven', raven);
 
     // clients
     server.decorate('request', 'secret', secret);
@@ -76,6 +94,7 @@ const globalDependenciesPlugin = {
     server.decorate('request', 'tokenStoreClient', tokenStoreClient);
     server.decorate('request', 'secretManagerClient', secretManagerClient);
     server.decorate('request', 'soap', soap);
+    server.decorate('request', 'invokeLambda', invokeLambda);
 
     // services
     server.decorate('request', 'validationService', validationService);
@@ -111,6 +130,15 @@ const globalDependenciesPlugin = {
       processCallbackService
     );
     server.decorate('request', 'paymentRequestService', paymentRequestService);
+    server.decorate('request', 'amaxService', amaxService);
+    server.decorate(
+      'request',
+      'productOrderingService',
+      productOrderingService
+    );
+    server.decorate('request', 'oneApiService', oneApiService);
+    server.decorate('request', 'paymentService', paymentService);
+    server.decorate('request', 'refundService', refundService);
 
     //data providers
     server.decorate(

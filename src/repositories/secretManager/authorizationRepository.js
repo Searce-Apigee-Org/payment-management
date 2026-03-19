@@ -9,9 +9,7 @@ const getAuthorizationByChannel = async (
 ) => {
   let key = `${secretEntity}-${clientId}`;
   const secretName = secretUtil.buildSecretName(key);
-
   logger.info('SECRET_NAME', { secretName });
-
   try {
     const secret = await secretManagerClient.get(secretName);
 
@@ -21,16 +19,16 @@ const getAuthorizationByChannel = async (
         details: `'${secretName}' in secret manager config not found.`,
       };
     }
-    const decodeSecret = decodeB64(secret);
-    const parsedSecret = JSON.parse(decodeSecret) || null;
-    return parsedSecret;
-  } catch (err) {
-    logger.debug('AUTHORIZATION_CHANNEL_ERROR', err);
-    if (err.type) {
-      throw err;
-    }
 
-    throw { type: 'OperationFailed' };
+    const stripped = secret.includes(' ') ? secret.split(' ')[1] : secret;
+    const decoded = decodeB64(stripped);
+    const [fetchedClientId, clientSecret] = decoded.split(':');
+    logger.info('PARSED_CREDENTIALS', { fetchedClientId, clientSecret });
+
+    return { clientId: fetchedClientId, clientSecret };
+  } catch (err) {
+    logger.debug('GET_AUTHORIZATION_CHANNEL_OPERATION_FAILED', err);
+    throw err;
   }
 };
 

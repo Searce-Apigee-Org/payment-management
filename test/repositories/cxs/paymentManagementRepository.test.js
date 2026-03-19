@@ -39,13 +39,15 @@ describe('Repository :: paymentManagementRepository :: paymentStatusCallbackAsyn
 
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [url, calledPayload, options, arg4, arg5] = httpStub.post.args[0];
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
     expect(url).to.be.a.string();
     expect(calledPayload).to.equal(payload);
     expect(options).to.equal({});
     expect(arg4).to.be.false();
     expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
       infoSpy.calledWith('CXS_PAYMENT_STATUS_CALLBACK_ASYNC_REQUEST', payload)
@@ -103,10 +105,15 @@ describe('Repository :: paymentManagementRepository :: processCSPaymentAsync', (
 
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [url, calledPayload] = httpStub.post.args[0];
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
     expect(url).to.be.a.string();
     expect(calledPayload).to.equal(payload);
+    expect(options).to.equal({});
+    expect(arg4).to.be.false();
+    expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
       infoSpy.calledWith('CXS_PROCESS_CS_PAYMENT_ASYNC_REQUEST', payload)
@@ -164,7 +171,8 @@ describe('Repository :: paymentManagementRepository :: buyLoadAsync', () => {
 
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [url, calledPayload, options, arg4, arg5] = httpStub.post.args[0];
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
     expect(url).to.be.a.string();
     expect(url).to.contain(encodeURIComponent(payload.mobileNumber));
@@ -172,6 +180,7 @@ describe('Repository :: paymentManagementRepository :: buyLoadAsync', () => {
     expect(options).to.equal({});
     expect(arg4).to.be.false();
     expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
       infoSpy.calledWith('CXS_BUY_LOAD_ASYNC_REQUEST', payload)
@@ -202,6 +211,7 @@ describe('Repository :: paymentManagementRepository :: executeRefund', () => {
   let req;
   let httpStub;
   let debugSpy;
+  let infoSpy;
 
   beforeEach(() => {
     httpStub = { post: Sinon.stub() };
@@ -211,6 +221,7 @@ describe('Repository :: paymentManagementRepository :: executeRefund', () => {
     };
 
     debugSpy = Sinon.spy(logger, 'debug');
+    infoSpy = Sinon.spy(logger, 'info');
   });
 
   afterEach(() => {
@@ -253,6 +264,9 @@ describe('Repository :: paymentManagementRepository :: executeRefund', () => {
     expect(postStub.firstCall.args[3]).to.equal(false);
     expect(postStub.firstCall.args[4]).to.equal(false);
     expect(res).to.equal(mockResponse);
+    expect(
+      infoSpy.calledWith('CXS_PAYMENT_EXECUTE_REFUND_RESPONSE', mockResponse)
+    ).to.be.true();
   });
 
   it('should rethrow error when http.post fails', async () => {

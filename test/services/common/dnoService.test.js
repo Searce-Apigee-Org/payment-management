@@ -2,7 +2,11 @@ import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import sinon from 'sinon';
 import { config } from '../../../convict/config.js';
-import { dnoGetOffers } from '../../../src/services/common/dnoService.js';
+import {
+  dnoGetOffers,
+  handleLFDNOUpdatePayment,
+  handleLFDNOXenditUpdatePayment,
+} from '../../../src/services/common/dnoService.js';
 
 const lab = Lab.script();
 const { describe, it, beforeEach, afterEach } = lab;
@@ -133,5 +137,108 @@ describe('Service :: v1 :: dnoGetOffersService :: dnoGetOffers', () => {
       ids
     );
     expect(result).to.equal([]);
+  });
+});
+
+describe('Service :: common :: dnoService :: handleLFDNOXenditUpdatePayment', () => {
+  let req;
+
+  beforeEach(() => {
+    req = {
+      dno: {
+        paymentsRepository: {
+          updatePayment: sinon.stub().resolves(),
+        },
+      },
+    };
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should build notification with checkoutUrl, call DNO updatePayment and return true when GFP Xendit created requires action', async () => {
+    const notificationRequest = {
+      name: 'XenditPaymentSessionCreated',
+      payload: {
+        paymentId: 'PAY123',
+        status: 'REQUIRES_ACTION',
+        actions: [
+          {
+            url: 'https://checkout.example/123',
+          },
+        ],
+      },
+    };
+
+    // tokenChannel = tokenPaymentId.substring(0, 3) => 'gfp' (matches CHANNELS.GFP)
+    const tokenPaymentId = 'gfp-abc123';
+
+    const result = await handleLFDNOXenditUpdatePayment(
+      req,
+      notificationRequest,
+      tokenPaymentId
+    );
+
+    expect(result).to.equal(true);
+    expect(req.dno.paymentsRepository.updatePayment.calledOnce).to.be.true();
+
+    const [notificationArg, reqArg] =
+      req.dno.paymentsRepository.updatePayment.firstCall.args;
+
+    expect(reqArg).to.equal(req);
+    expect(notificationArg).to.equal({
+      name: 'XenditPaymentSessionCreated',
+      payload: {
+        paymentId: 'PAY123',
+        status: 'REQUIRES_ACTION',
+        checkoutUrl: 'https://checkout.example/123',
+      },
+    });
+  });
+});
+
+describe('Service :: common :: dnoService :: handleLFDNOUpdatePayment', () => {
+  let req;
+
+  beforeEach(() => {
+    req = {
+      dno: {
+        paymentsRepository: {
+          updatePayment: sinon.stub().resolves(),
+        },
+      },
+    };
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should normalise refundAmount without decimal and call DNO updatePayment', async () => {
+    const notificationRequest = {
+      payload: {
+        refundAmount: '1000', // treated as cents; will be divided by 100
+      },
+    };
+
+    const tokenPaymentId = 'gfp-xyz'; // channel GFP
+    const isDnoInvoked = false;
+
+    await handleLFDNOUpdatePayment(
+      req,
+      notificationRequest,
+      tokenPaymentId,
+      isDnoInvoked
+    );
+
+    expect(req.dno.paymentsRepository.updatePayment.calledOnce).to.be.true();
+
+    const [updatedNotification, reqArg] =
+      req.dno.paymentsRepository.updatePayment.firstCall.args;
+
+    expect(reqArg).to.equal(req);
+    expect(updatedNotification).to.equal(notificationRequest);
+    expect(updatedNotification.payload.refundAmount).to.equal('10');
   });
 });

@@ -35,12 +35,35 @@ const rewardPointsSchema = Joi.object({
   referralCodeUser: referralCodeSchema.required(),
 }).label('RewardPointsModel');
 
+const voucherSchema = Joi.object({
+  serialNumber: Joi.string().optional(),
+  voucherCode: Joi.string().optional(),
+  voucherDescription: Joi.string().optional(),
+  contentPartner: Joi.string().optional(),
+  paidAmount: Joi.number().optional(),
+  validFrom: Joi.string().optional(),
+  validTo: Joi.string().optional(),
+  paidAmount: Joi.string().optional(),
+}).label('VoucherModel');
+
 const transactionSchema = Joi.object({
   transactionId: Joi.string().required(),
   provisionStatus: Joi.string().optional(),
   amount: Joi.number().optional(),
   keyword: Joi.string().optional(),
   questIndicator: Joi.string().optional(),
+  param: Joi.string().optional(),
+  serviceId: Joi.string().optional(),
+  wallet: Joi.string().optional(),
+  agentName: Joi.string().optional(),
+  externalTransactionId: Joi.string().optional(),
+  serviceNumber: Joi.string().optional(),
+  voucherCategory: Joi.string().optional(),
+  voucherDetails: Joi.array()
+    .items(voucherSchema)
+    .optional()
+    .label('VoucherArray'),
+  partnerReferenceNumber: Joi.string().required(),
 }).label('TransactionModel');
 
 const accountSchema = Joi.object({
@@ -59,13 +82,13 @@ const accountSchema = Joi.object({
   rewardPoints: rewardPointsSchema.optional(),
 
   accountType: Joi.string().optional(),
-  amount: Joi.string().optional(),
+  amount: Joi.number().optional(),
 }).label('AccountModel');
 
 const paymentDetailSchema = Joi.object({
-  convenienceFeeAmount: Joi.string().required(),
-  postedAmount: Joi.string().required(),
-  paymentAmount: Joi.string().required(),
+  convenienceFeeAmount: Joi.number().required(),
+  postedAmount: Joi.number().required(),
+  paymentAmount: Joi.number().required(),
   convenienceFeeType: Joi.string().optional(),
 }).label('PaymentDetailModel');
 
@@ -103,6 +126,8 @@ const getPaymentSessionResponseSchema = Joi.object({
     checkoutUrl: Joi.string().required(),
     transactionDate: Joi.string().required(),
     oona: Joi.array().items(oonaSchema).optional().label('OonaArray'),
+    paymentId: Joi.string().optional(),
+    actions: Joi.object().optional(),
   })
     .required()
     .label('GetPaymentSessionResultModel'),

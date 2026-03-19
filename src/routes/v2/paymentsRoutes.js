@@ -1,5 +1,6 @@
 import { setDefaultFields } from '@globetel/cxs-core/core/analytics/index.js';
 import { utils } from '@globetel/cxs-core/core/error/index.js';
+import { decodeUserJWTMiddleware } from '@globetel/cxs-core/core/jwt/index.js';
 import { validate } from '@globetel/cxs-core/core/validators/index.js';
 import { v2Services } from '../../services/index.js';
 import { v2Validations } from '../../validations/index.js';
@@ -28,7 +29,10 @@ const paymentsRoutes = {
               strict: true,
             },
           },
-          pre: [{ method: setDefaultFields }],
+          pre: [
+            { method: setDefaultFields },
+            { method: decodeUserJWTMiddleware, assign: 'user' },
+          ],
           response: {
             status: {
               200: v2Validations.webPaymentRequestValidation.createWebPaymentSessionResponseSchema.label(

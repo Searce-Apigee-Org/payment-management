@@ -28,7 +28,7 @@ describe('Repository :: HIP :: interimRepository :: getDetailsByMSISDN', () => {
     soap.send.rejects(new Error('SOAP failure'));
 
     try {
-      await getDetailsByMSISDN(mockRequest, { soap });
+      await getDetailsByMSISDN({ soap }, mockRequest);
       throw new Error('Expected to throw but succeeded');
     } catch (err) {
       expect(err).to.be.an.object();
@@ -47,7 +47,7 @@ describe('Repository :: HIP :: interimRepository :: getDetailsByMSISDN', () => {
 
     const stub = soap.send.resolves(mockSoapResponse);
 
-    const response = await getDetailsByMSISDN(mockRequest, { soap });
+    const response = await getDetailsByMSISDN({ soap }, mockRequest);
 
     expect(stub.calledOnce).to.be.true();
     expect(response).to.equal(mockResult);

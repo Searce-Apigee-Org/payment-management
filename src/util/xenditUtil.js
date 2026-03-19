@@ -11,6 +11,7 @@ const validateXenditRequest = (req, xenditRequest) => {
   const {
     PAYMENT_REQUEST_TYPES: {
       BUY_PROMO,
+      BUY_ROAMING,
       PAY_BILLS,
       BUY_LOAD,
       NON_BILL,
@@ -36,12 +37,18 @@ const validateXenditRequest = (req, xenditRequest) => {
   );
 
   if (!checkChannel) {
-    logger.debug('Invalid channel for Xendit payment type');
-    throw { type: 'InvalidParameter' };
+    logger.debug(
+      `Invalid channel for Xendit payment type: channel="${channel}", paymentType="${paymentType}", requestType="${requestType}"`
+    );
+    throw {
+      type: 'InvalidParameter',
+      message: `Invalid channel "${channel}" for Xendit payment type "${paymentType}" and request type "${requestType}".`,
+    };
   }
 
   const validRequestTypes = [
     BUY_PROMO,
+    BUY_ROAMING,
     PAY_BILLS,
     BUY_LOAD,
     NON_BILL,
@@ -206,7 +213,25 @@ const validateXenditRequest = (req, xenditRequest) => {
       throw { type: 'InvalidRequestParameter', message: 'Invalid parameter.' };
     }
 
-    if (!headers?.['user-token']) {
+    // Require presence of a user-token header value.
+    // Prefer the raw HTTP headers if available, but fall back to app headers
+    // so this works consistently across different entrypoints/middlewares.
+    let userTokenHeader =
+      req?.headers?.['user-token'] ?? headers?.['user-token'];
+
+    // In some environments the gateway/middleware may already have parsed the
+    // user-token into an object for analytics/logging. In that case, try to
+    // recover a string value from common fields, but still ultimately just
+    // enforce "something" is present so we don't break existing behavior.
+    if (userTokenHeader && typeof userTokenHeader === 'object') {
+      userTokenHeader =
+        userTokenHeader.accessToken ||
+        userTokenHeader.access_token ||
+        userTokenHeader.token ||
+        null;
+    }
+
+    if (!userTokenHeader) {
       logger.debug('Missing user-token header');
       throw {
         type: 'MissingParameterValidateException',

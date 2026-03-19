@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/update-order-service/oauth/token"
+  },
+  "response": {
+    "status": 200,
+    "bodyFileName": "gcp-generate-oauth-token.json",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

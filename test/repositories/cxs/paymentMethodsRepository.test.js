@@ -2,6 +2,7 @@ import logger from '@globetel/cxs-core/core/logger/logger.js';
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Sinon from 'sinon';
+import { config } from '../../../convict/config.js';
 import { paymentMethodsRepository } from '../../../src/repositories/cxs/index.js';
 
 const lab = Lab.script();
@@ -42,17 +43,27 @@ describe('Repository :: paymentMethodsRepository :: processBuyVoucherAsync', () 
       amount: 100,
     };
 
+    const {
+      host,
+      httpProtocol,
+      endpoints: { createPromoVouchers: endpoint },
+    } = config.get('cxs.paymentMethods');
+
+    const expectedUrl = `${httpProtocol}://${host}/${endpoint}`;
+
     await paymentMethodsRepository.processBuyVoucherAsync(req, payload);
 
     expect(httpStub.post.calledOnce).to.be.true();
 
-    const [url, calledPayload, options, arg4, arg5] = httpStub.post.args[0];
+    const [url, calledPayload, options, arg4, arg5, arg6] =
+      httpStub.post.args[0];
 
-    expect(url).to.be.a.string();
+    expect(url).to.equal(expectedUrl);
     expect(calledPayload).to.equal(payload);
     expect(options).to.equal({});
     expect(arg4).to.be.false();
     expect(arg5).to.be.false();
+    expect(arg6).to.be.true();
 
     expect(
       infoSpy.calledWith('CXS_BUY_VOUCHER_ASYNC_REQUEST', payload)
