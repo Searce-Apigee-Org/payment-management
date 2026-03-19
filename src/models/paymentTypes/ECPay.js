@@ -1,4 +1,3 @@
-import logger from '@globetel/cxs-core/core/logger/logger.js';
 import Joi from 'joi';
 
 const ECPayRequestSchema = Joi.array()

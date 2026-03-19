@@ -1,4 +1,3 @@
-import logger from '@globetel/cxs-core/core/logger/logger.js';
 import Joi from 'joi';
 import { constants, validationUtil } from '../../util/index.js';
 
