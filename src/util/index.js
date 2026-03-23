@@ -3,6 +3,7 @@ import * as cacheUtil from './cacheUtil.js';
 import * as callbackClassificationUtil from './callbackReqClassificationUtil.js';
 import * as callbackUtil from './callbackUtil.js';
 import * as constants from './constants.js';
+import * as contextUtil from './contextUtil.js';
 import * as csPaymentsUtil from './csPaymentsUtil.js';
 import * as dataDictionaryUtil from './dataDictionaryUtil.js';
 import * as dateTimeUtil from './dateTimeUtil.js';
@@ -25,6 +26,7 @@ export {
   callbackClassificationUtil,
   callbackUtil,
   constants,
+  contextUtil,
   csPaymentsUtil,
   dataDictionaryUtil,
   dateTimeUtil,
