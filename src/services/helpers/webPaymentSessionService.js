@@ -180,7 +180,7 @@ const insertWebPaymentSessionToDB = async (params) => {
       };
 
       // Include brand if passed from payload
-      if ('brand' in transactionProfile && transactionProfile.brand != '') {
+      if ('brand' in transactionProfile && transactionProfile.brand !== '') {
         res.metadata.brand = transactionProfile.brand;
       }
     }

@@ -85,7 +85,7 @@
       {
         "displayName": "RequestPaymentRefundRoutes-V1",
         "identifier": "request-payment-refund-v1",
-        "path": "v1/paymentManagement/payments/{tokenPaymentId}/refund",
+        "path": "/v1/paymentManagement/payments/{tokenPaymentId}/refund",
         "method": "POST",
         "description": "This API will call Refund API directly from PayO to process GCash refund.",
         "status": "LIVE",

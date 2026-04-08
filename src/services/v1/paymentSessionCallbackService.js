@@ -82,7 +82,6 @@ const callback = async (req) => {
 
       for (const transaction of transactions) {
         if (transaction.partnerReferenceNumber) {
-          //TODO - Improvement required here
           ecpayTransactionDetails =
             await mongo.ecpayTransactionRepository.findOne(
               transaction.partnerReferenceNumber

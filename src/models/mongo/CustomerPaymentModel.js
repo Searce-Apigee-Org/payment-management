@@ -82,8 +82,11 @@ customerPaymentSchema.set('toObject', {
   },
 });
 
+/**
+ * @type {import('mongoose').Model<import('mongoose').Document>}
+ */
 const CustomerPaymentModel = mongo.mongoose.model(
-  config.get('mongo.tables.customerPayment') || 'CustomerPayment',
+  config.get('mongo.tables.customerPayment') || 'customerPayment',
   customerPaymentSchema,
   config.get('mongo.tables.customerPayment')
 );

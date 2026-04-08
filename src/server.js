@@ -56,7 +56,7 @@ import {
   singlifeService,
   tenantTokenService,
 } from './services/common/index.js';
-import { helpers, v1Services } from './services/index.js';
+import { helpers, v1Services, v2Services } from './services/index.js';
 import {
   esimFetchAuthorizationToken,
   paymentAuthService,
@@ -127,7 +127,7 @@ const createServer = async (isInPurgatory = false) => {
         questIndicatorService: v1Services.questIndicatorService,
         paymentLoyaltyService: v1Services.paymentLoyaltyService,
         t2PaymentServiceAuth: v2Services.t2PaymentServiceAuth,
-        createPaymentSessionService: v2Services.createPaymentSessionService,
+        createPaymentSessionService: v2Services.createWebPaymentSessionService,
         downstreamDataProvider: providers.downstreamDataProvider,
         hip,
         accountInfoService,

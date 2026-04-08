@@ -19,6 +19,15 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
     serviceHelpers,
     accountInfoService,
   } = req;
+
+  // Defensive check for cxsRequest
+  if (!cxsRequest || typeof cxsRequest !== 'object') {
+    throw {
+      type: 'InvalidRequest',
+      message: 'Missing or invalid cxsRequest in request object.',
+    };
+  }
+
   let paymentSessionType;
   let gcashPaymentInfo;
   let paymentInfo;
@@ -71,8 +80,7 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
       gcashPaymentInfo.miscellaneous =
         validationService.validateBudgetProtect(req);
     } else if (
-      // eslint-disable-next-line eqeqeq
-      (hasBudgetProtect === false || hasBudgetProtect == null) &&
+      (hasBudgetProtect === false || hasBudgetProtect === null) &&
       hasBudgetProtectProfile
     ) {
       throw {
@@ -218,8 +226,7 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
       paymentInfo.miscellaneous =
         await validationService.validateBudgetProtect(req);
     } else if (
-      // eslint-disable-next-line eqeqeq
-      (hasBudgetProtect === false || hasBudgetProtect == null) &&
+      (hasBudgetProtect === false || hasBudgetProtect === null) &&
       hasBudgetProtectProfile
     ) {
       throw {
@@ -288,6 +295,14 @@ const preProcessPaymentInfo = async (req) => {
     paymentTypeModels,
     paymentRequestService,
   } = req;
+
+  // Defensive check for cxsRequest
+  if (!cxsRequest || typeof cxsRequest !== 'object') {
+    throw {
+      type: 'InvalidRequest',
+      message: 'Missing or invalid cxsRequest in request.app object.',
+    };
+  }
 
   const { settlementInformation, paymentInformation, paymentType } = cxsRequest;
   req.app.additionalParams ??= {};

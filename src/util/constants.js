@@ -65,7 +65,7 @@ const TOKEN_ENTITY = {
 };
 
 const SECRET_ENTITY = {
-  PAYMENT_SERIVCE_CREDENTIAL: 'authorization-credentials',
+  PAYMENT_SERVICE_CREDENTIAL: 'authorization-credentials',
   VOUCHER: 'vouchers',
   PROCESSINGFEE_GCASH: 'superapp-ecpay-gcash-processingfee',
   DNO_CONFIG: 'dno-config',
@@ -81,6 +81,7 @@ const SECRET_ENTITY = {
   AMAX: 'amax',
   REFUND_AUTH_TOKEN: 'refund-auth-token',
   GPAYO: 'gpayo-credentials',
+  REFUND: 'refund',
 };
 
 const PAYMENT_SESSIONS = {
@@ -88,18 +89,6 @@ const PAYMENT_SESSIONS = {
   XENDIT: 'XenditPaymentSession',
   CREATE: 'CreatePaymentSession',
   CREATE_FAILED: 'CREATE_PAYMENT_SESSION_FAILED',
-};
-
-const PAYMENT_NOTIFICATION_NAMES = {
-  XENDIT_CREATED: 'XenditPaymentSessionCreated',
-};
-
-const PAYMENT_NOTIFICATION_STATUS = {
-  REQUIRES_ACTION: 'REQUIRES_ACTION',
-};
-
-const PAYMENT_SESSION_STATUS = {
-  XENDIT_REFUSED: 'XENDIT_REFUSED',
 };
 
 const PAYMENT_NOTIFICATION_NAMES = {
@@ -294,6 +283,29 @@ const RUDY_PATH = {
   PAYMENTS_V1_CREDENTIALS: `platform-rudy-payments-v1-credentials`,
 };
 
+const WEBPAYMENT_CONSTANTS = {
+  DATE_FORMAT: `YYYY-MM-DDTHH:mm:ss.SSS`,
+  DEFAULT_SETTLEMENT_STATUS: 'PROCESSING',
+  DEFAULT_ENTITY_STATUS: 'PROCESSING',
+  BBPREPAIDPROMO_DEFAULT_PAYMENT_TYPE: 'ECPay',
+  DEFAULT_PAYMENT_TYPE: 'CARD',
+  BBPREPAIDPROMO_REQ_TYPE_VAL: 'BBPrepaidPromo',
+  DEFAULT_PROVISION_STATUS: 'PROCESSING',
+  TIME_OFFSET: '+08:00',
+  ACCESS_TOKEN_BUFFER_SECONDS: 300,
+  ALLOWED_OONA_SKUS: ['oonacomptravel', 'oonasmartdelay'],
+  DEFAULT_OONA_SSM_KEY: 'OONA_COMP_TRAVEL',
+  POSTPAID_OONA_SSM_KEY: 'OONA_COMP_TRAVEL_POSTPAID',
+  BUDGET_PROTECT_SSM_API_NUMBER: '00010',
+  PERCENTAGE_RATE_TYPE: 'percentage',
+  DEFAULT_PAYMENT_SESSION_VERSION: 'v2',
+  GPAYO_CREDENTIALS_KEY: 'gpayo-credentials',
+  OONA_CONFIG_KEY: 'oona-pricing-config',
+  BUDGET_PROTECT_CONFIG_KEY: 'singlife-pricing-config',
+  OONA_COMP_TRAVEL_KEY: 'oonacomptravel',
+  OONA_SMART_DELAY_KEY: 'oonasmartdelay',
+};
+
 const SETTLEMENT_STATUS = {
   AUTHORISED: {
     CARD: 'CARD_AUTHORISED',
@@ -314,6 +326,7 @@ const AUTHORISED = 'AUTHORISED';
 const PROCESSING = 'PROCESSING';
 const FAILED = 'FAILED';
 const CANCELLED = 'CANCELLED';
+
 const CS_PAYMENTS = {
   CREDENTIALS_PATH: `processCSPayment-credentials`,
 };
@@ -367,146 +380,19 @@ const STATUS_CODE = {
   SUCCESS: '0',
 };
 
-const PAYMENT_TYPE_KEYS = {
-  NOTIFICATION_URLS: 'notificationUrls',
-  ENV_INFO: 'envInfo',
-  ORDER: 'order',
-  REUSABILITY: 'reusability',
-  PAYMENT_METHOD_ID: 'paymentMethodId',
-  DIRECT_DEBIT: 'directDebit',
-  CHANNEL_CODE: 'channelCode',
-  EWALLET: 'eWallet',
-  FAILURE_URL: 'failureUrl',
-  CANCEL_URL: 'cancelUrl',
-  PRODUCT_NAME: 'productName',
-  PRODUCT_ID: 'productId',
-  MERCHANT_ID: 'merchantId',
-  ORDER: 'order',
-  SIGN_AGREEMENT_PAY: 'signAgreementPay',
-  SUB_MERCHANT_NAME: 'subMerchantName',
-  SUB_MERCHANT_ID: 'subMerchantId',
-  PAYMENT_TYPE: 'paymentType',
-  TYPE: 'type',
+const ACCESS_TOKEN = {
+  BUFFER: 60,
 };
 
-const PAYMENT_TYPES = {
-  XENDIT: 'XENDIT',
-  GCASH: 'GCASH',
-  PAYMAYA: 'PAYMAYA',
-  SHOPEEPAY: 'SHOPEEPAY',
-  GRABPAY: 'GRABPAY',
+const PAYO = {
+  REASONS: 'CANCELLATION',
 };
 
-const PAYMENT_MODES = {
-  CC_DC: 'CC_DC',
-  DIRECT_DEBIT: 'DIRECT_DEBIT',
-  EWALLET: 'EWALLET',
+const CONFIG = {
+  SHARED: 'shared',
 };
 
-const PAYMENT_BANKS = {
-  BPI: 'BPI',
-  UBP: 'UBP',
-  RCBC: 'RCBC',
-};
-
-const REQUEST_TYPES = {
-  BUYESIMLOCAL: 'BuyESIMLocal',
-  PTOESIM: 'PtoESIM',
-  BUYESIM: 'BuyESIM',
-  PAY_BILLS: 'PayBills',
-  ECPAY: 'ECPay',
-  BBPREPAIDPROMO: 'BBPrepaidPromo',
-  BBPREPAIDREPAIR: 'BBPrepaidRepair',
-  BUY_LOAD: 'BUYLOAD',
-  BUY_PROMO: 'BUYPROMO',
-};
-
-const FORBIDDEN_KEYS = {
-  ESIM_GCASH: [
-    PAYMENT_TYPE_KEYS.TYPE,
-    PAYMENT_TYPE_KEYS.CHANNEL_CODE,
-    PAYMENT_TYPE_KEYS.DIRECT_DEBIT,
-    PAYMENT_TYPE_KEYS.EWALLET,
-    PAYMENT_TYPE_KEYS.PAYMENT_METHOD_ID,
-    PAYMENT_TYPE_KEYS.PRODUCT_NAME,
-    PAYMENT_TYPE_KEYS.PRODUCT_ID,
-    PAYMENT_TYPE_KEYS.REUSABILITY,
-    PAYMENT_TYPE_KEYS.MERCHANT_ID,
-  ],
-  ESIM_XENDIT: [
-    PAYMENT_TYPE_KEYS.NOTIFICATION_URLS,
-    PAYMENT_TYPE_KEYS.ENV_INFO,
-    PAYMENT_TYPE_KEYS.ORDER,
-    PAYMENT_TYPE_KEYS.SIGN_AGREEMENT_PAY,
-    PAYMENT_TYPE_KEYS.SUB_MERCHANT_NAME,
-    PAYMENT_TYPE_KEYS.SUB_MERCHANT_ID,
-  ],
-};
-
-const PLATFORMS = {
-  APP: 'APP',
-  WEB: 'WEB',
-};
-
-const CHANNEL = {
-  GLA: 'GLA',
-  CPT: 'CPT',
-};
-
-const CURRENCY = {
-  PHP: 'PHP',
-};
-
-const DOWNSTREAMS = {
-  GET_DETAILS_BY_MSISDN: 'GetDetailsByMsisdn',
-  GET_ACCOUNT_INFO: 'GetAccountInfo',
-};
-
-const ACTIONS = {
-  GET_DETAILS_BY_MSISDN: 'GetDetailsByMsisdn',
-};
-
-const RUDY_METHOD = {
-  GET_PAYMENTS: `getOrListByAccNoAndYear`,
-};
-
-const RUDY_PATH = {
-  PAYMENTS_V1_CREDENTIALS: `platform-rudy-payments-v1-credentials`,
-};
-
-const SETTLEMENT_STATUS = {
-  AUTHORISED: {
-    CARD: 'CARD_AUTHORISED',
-    XENDIT: 'XENDIT_AUTHORISED',
-    GCASH: 'GCASH_AUTHORISED',
-  },
-};
-
-const ESIM_REQUEST_TYPES = [
-  'BUYESIM',
-  'BUYESIMLOCAL',
-  'PTOESIM',
-  'DEVICETRANSFER',
-];
-
-const SUCCESS = 'SUCCESS';
-const AUTHORISED = 'AUTHORISED';
-const PROCESSING = 'PROCESSING';
-const FAILED = 'FAILED';
-const CANCELLED = 'CANCELLED';
-const CS_PAYMENTS = {
-  CREDENTIALS_PATH: `processCSPayment-credentials`,
-};
-
-const STATUS = {
-  FAILED: 'FAILED',
-  SUCCESS: 'SUCCESS',
-};
-
-const HTTP_STATUS = {
-  NO_CONTENT: 204,
-  UNAUTHORIZED: 401,
-};
+const APIS = 'apis';
 
 const ACCESS_TOKEN = {
   BUFFER: 60,
@@ -519,6 +405,7 @@ const PAYO = {
 export {
   ACCESS_TOKEN,
   ACTIONS,
+  APIS,
   API_NUMBERS,
   API_VERSIONS,
   AUTHORISED,
@@ -527,6 +414,7 @@ export {
   CHANNEL,
   CHANNELS,
   CHANNEL_NAME,
+  CONFIG,
   CS_PAYMENTS,
   CURRENCY,
   DOWNSTREAM,
@@ -552,6 +440,7 @@ export {
   PAYMENT_STATUS,
   PAYMENT_TYPES,
   PAYMENT_TYPE_KEYS,
+  PAYO,
   PLATFORMS,
   PROCESSING,
   PRODUCT_TYPE,

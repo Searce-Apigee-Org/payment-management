@@ -261,16 +261,14 @@ describe('Repository :: Mongo :: CustomerPayment Repository :: update', () => {
         filter: { tokenPaymentId: 'pay-006' },
         update: { $set: { a: 2 } },
       });
-      throw new Error('Expected to throw');
     } catch (err) {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.equal('DB update error');
-
-      expect(debugStub.calledOnce).to.be.true();
-      const [tag, errorArg] = debugStub.getCall(0).args;
-      expect(tag).to.equal('UPDATE_CUSTOMER_PAYMENT_ERROR');
-      expect(errorArg).to.be.instanceOf(Error);
-      expect(errorArg.message).to.equal('DB update error');
+      throw err;
     }
+
+    expect(debugStub.calledOnce).to.be.true();
+    const [tag, errorArg] = debugStub.getCall(0).args;
+    expect(tag).to.equal('UPDATE_CUSTOMER_PAYMENT_ERROR');
+    expect(errorArg).to.be.instanceOf(Error);
+    expect(errorArg.message).to.equal('DB update error');
   });
 });

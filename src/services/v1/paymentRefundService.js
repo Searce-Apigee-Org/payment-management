@@ -85,7 +85,6 @@ const requestPaymentRefund = async (req) => {
       header = { Authorization: `Bearer ${accessToken}` };
       logger.info('GPayO_ACCESS_TOKEN_HEADER', header);
 
-      // For GPayO, the request body may differ; adjust as needed
       const gpayoRequest = {
         paymentId: tokenPaymentId,
         amount: payload.refundAmount,

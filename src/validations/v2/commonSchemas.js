@@ -53,7 +53,7 @@ const transactionSchema = Joi.object({
   amount: Joi.number()
     .min(0)
     .custom((value, helpers) => {
-      if (value != null && value.toString().split('.')[1]?.length > 2) {
+      if (value !== null && value.toString().split('.')[1]?.length > 2) {
         return helpers.error('any.invalid', {
           message: 'amount cannot have more than 2 decimal places',
         });
@@ -259,7 +259,7 @@ const breakdownSchema = Joi.array()
           });
         }
 
-        if (value.amount != null) {
+        if (value.amount !== null) {
           const decimalPart = value.amount.toString().split('.')[1];
           if (decimalPart && decimalPart.length > 2) {
             return helpers.error('any.invalid', {

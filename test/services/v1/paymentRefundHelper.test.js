@@ -163,31 +163,14 @@ describe('Service :: PaymentRefundHelper', () => {
   });
 
   describe('findPaymentSessionDetails', () => {
-    it('returns payment session from mongo repo', async () => {
-      mongoStub.customerPaymentsRepository.find.resolves({
-        Item: { foo: 'bar' },
-      });
-      const result = await helper.findPaymentSessionDetails(
-        'tid-123',
-        mongoStub
-      );
-      expect(result).to.equal({ foo: 'bar' });
-    });
-
-    it('returns undefined if Item is missing', async () => {
-      mongoStub.customerPaymentsRepository.find.resolves({});
-      const result = await helper.findPaymentSessionDetails(
-        'tid-123',
-        mongoStub
-      );
-      expect(result).to.be.undefined();
+    it('is not implemented in v1 paymentRefundHelper (sanity)', () => {
+      expect(helper.findPaymentSessionDetails).to.be.undefined();
     });
   });
 
   describe('identifySourceChannel', () => {
-    it('returns undefined for unknown prefix', () => {
-      const result = helper.identifySourceChannel('ZZZ12345');
-      expect(result).to.be.undefined();
+    it('is not implemented in v1 paymentRefundHelper (sanity)', () => {
+      expect(helper.identifySourceChannel).to.be.undefined();
     });
   });
 });

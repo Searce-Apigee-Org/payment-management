@@ -29,7 +29,7 @@ const customerPaymentItems = [
         transactionType: "G"
       }
     ],
-    userToken: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Ikpvc2llMjhfMTYyMzkxNjYzNDYxMUBnbWFpbC5jb20iLCJ1dWlkIjoiNzE4NDkzZGQtMzVkMi00YmY0LWI3YmQtYzI0NzE2YjhiYzk0IiwiZW1haWxWZXJpZmllZCI6IjIwMjEtMDYtMTcgMDc6NTc6NDYuNjg1NjU1ICswMDAwIiwiaXNOZXciOmZhbHNlLCJhY2Nlc3NUb2tlbiI6IjdzMmJoYnI2NTNheTdoYXkiLCJyZWZyZXNoVG9rZW4iOiJmMzlrNjc3ZjhrbWh2MmZkY2duOCIsImlhdCI6MTY0MzA5MDk2MywiaXNzIjoiQ1hTIiwiZXhwIjoxNjQzMDk0NTYzfQ.wl6w3HkNqkfMi5tpC7xZBUcH-r4yG_OgNAeDOkZgAlo"
+    userToken: "Bearer <user-token>"
   }
 ];
 

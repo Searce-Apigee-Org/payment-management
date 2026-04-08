@@ -16,7 +16,6 @@ const getPaymentServiceCredentials = async (
       const secret = await secretManagerClient.get(secretName);
 
       if (!secret) {
-        //TODO - throw ClientCredentialsNotFound Error
         throw {
           type: 'InsufficientParameters',
           details: `'${secretName}' in secret manager config not found.`,
@@ -60,8 +59,7 @@ const getInitVoucher = async (
         };
       }
 
-      const decodedSecret = decodeB64(secret);
-      return decodedSecret;
+      return JSON.parse(decodeB64(secret))?.VOUCHER_AUTH_TOKEN;
     } catch (error) {
       logger.debug('getInitVoucher failed', error);
       throw error;
@@ -143,10 +141,41 @@ const getRefundAuthToken = async (secretManagerClient) => {
   }
 };
 
+const getUpdateVoucherAuthToken = async (
+  secretManagerClient,
+  apiNumber,
+  apiVersion,
+  secretEntity
+) => {
+  const key = `${constants.APIS}-${apiNumber}-${apiVersion}-${secretEntity}`;
+  const secretName = secretUtil.buildSecretName(key);
+
+  logger.info(`Secret name is ${secretName}`);
+
+  try {
+    const secret = await secretManagerClient.get(secretName);
+
+    if (!secret) {
+      throw {
+        type: 'InvalidOutboundRequest',
+        details: `'${secretName}' in secret manager config not found.`,
+      };
+    }
+
+    const decodedSecret = decodeB64(secret);
+    const voucherAuthToken = JSON.parse(decodedSecret)?.VOUCHER_AUTH_TOKEN;
+    return voucherAuthToken;
+  } catch (error) {
+    logger.debug('SECRET_MANAGER_UPDATE_VOUCHER_AUTH_TOKEN', error);
+    throw error;
+  }
+};
+
 export {
   get,
   getGcashProcessingFee,
   getInitVoucher,
   getPaymentServiceCredentials,
   getRefundAuthToken,
+  getUpdateVoucherAuthToken,
 };

@@ -12,17 +12,23 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
   let reqMock,
     paymentRefundHelperMock,
     paymentMock,
+    payoMock,
     dataDictionaryMock,
     loggerMock;
 
   beforeEach(() => {
     paymentRefundHelperMock = {
-      findPaymentSessionDetails: Sinon.stub(),
       retrievePaymentServiceAccessToken: Sinon.stub(),
-      identifySourceChannel: Sinon.stub(),
+      retrieveGPayOAccessToken: Sinon.stub(),
+      isT1PaymentType: Sinon.stub(),
     };
     paymentMock = {
       paymentRepository: {
+        requestRefundByTokenId: Sinon.stub(),
+      },
+    };
+    payoMock = {
+      paymentServiceRepository: {
         requestRefundByTokenId: Sinon.stub(),
       },
     };
@@ -38,9 +44,14 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
       payload: { refundAmount: 100 },
       headers: {},
       paymentRefundHelper: paymentRefundHelperMock,
-      mongo: {},
+      mongo: {
+        customerPaymentsRepository: {
+          find: Sinon.stub(),
+        },
+      },
       payment: paymentMock,
       http: {},
+      payo: payoMock,
       logger: loggerMock,
       app: { dataDictionary: dataDictionaryMock },
     };
@@ -59,6 +70,19 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
         },
         '@globetel/cxs-core/core/logger/index.js': {
           logger: { error: loggerMock.error, info: () => {} },
+        },
+        '../../../src/util/index.js': {
+          constants: {
+            EPISODES: { PAY: 'PAY' },
+            TRANSACTION_STATUS: { SUCCESS: 'SUCCESS' },
+            PAYO: { REASONS: 'CANCELLATION' },
+          },
+          paymentsUtil: {
+            identifySourceChannel: Sinon.stub().returns('channel-1'),
+          },
+          xenditUtil: {
+            isXenditPayment: (pt) => (pt || '').toUpperCase() === 'XENDIT',
+          },
         },
       }
     );
@@ -104,13 +128,14 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
       userToken: 'Bearer ...',
       version: 'v2',
     };
-    paymentRefundHelperMock.findPaymentSessionDetails.resolves(
-      paymentSessionInfo
-    );
+    reqMock.mongo.customerPaymentsRepository.find.resolves({
+      Item: paymentSessionInfo,
+    });
+    // CARD/XENDIT flows are handled by the “T1 payment type” branch
+    paymentRefundHelperMock.isT1PaymentType.returns(true);
     paymentRefundHelperMock.retrievePaymentServiceAccessToken.resolves(
       'access-token'
     );
-    paymentRefundHelperMock.identifySourceChannel.returns('channel-1');
     paymentMock.paymentRepository.requestRefundByTokenId.resolves({
       status: 200,
     });
@@ -121,6 +146,13 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
 
     expect(result).to.equal({ statusCode: 202 });
     expect(dataDictionaryMock.setDataDictionary.called).to.be.true();
+    // Ensure xendit-specific payload is used
+    expect(
+      paymentMock.paymentRepository.requestRefundByTokenId.called
+    ).to.be.true();
+    const refundArgs =
+      paymentMock.paymentRepository.requestRefundByTokenId.getCall(0).args;
+    expect(refundArgs[1].command.name).to.equal('XenditRefundSession');
   });
 
   it('should process refund with CARD paymentType (default branch) and call setDataDictionary with success', async () => {
@@ -162,13 +194,13 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
       userToken: 'Bearer ...',
       version: 'v2',
     };
-    paymentRefundHelperMock.findPaymentSessionDetails.resolves(
-      paymentSessionInfo
-    );
+    reqMock.mongo.customerPaymentsRepository.find.resolves({
+      Item: paymentSessionInfo,
+    });
+    paymentRefundHelperMock.isT1PaymentType.returns(true);
     paymentRefundHelperMock.retrievePaymentServiceAccessToken.resolves(
       'access-token'
     );
-    paymentRefundHelperMock.identifySourceChannel.returns('channel-1');
     paymentMock.paymentRepository.requestRefundByTokenId.resolves({
       status: 200,
     });
@@ -183,10 +215,14 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
       (call) => call.args[1] && call.args[1].transaction_status
     );
     expect(found).to.be.true();
+    // Ensure default payload is used
+    const refundArgs =
+      paymentMock.paymentRepository.requestRefundByTokenId.getCall(0).args;
+    expect(refundArgs[1].command.name).to.equal('CreateRefundSession');
   });
 
   it('should log and rethrow errors (cover catch branch)', async () => {
-    paymentRefundHelperMock.findPaymentSessionDetails.throws(new Error('fail'));
+    reqMock.mongo.customerPaymentsRepository.find.throws(new Error('fail'));
     const requestPaymentRefund =
       await getRequestPaymentRefundWithMockedDataDictionary();
     let thrown = false;
@@ -201,7 +237,7 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
   });
 
   it('should log and rethrow non-Error thrown objects (cover catch branch)', async () => {
-    paymentRefundHelperMock.findPaymentSessionDetails.throws({ foo: 'bar' });
+    reqMock.mongo.customerPaymentsRepository.find.throws({ foo: 'bar' });
     const requestPaymentRefund =
       await getRequestPaymentRefundWithMockedDataDictionary();
     let thrown = false;
@@ -230,13 +266,13 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
       userToken: 'Bearer ...',
       version: 'v2',
     };
-    paymentRefundHelperMock.findPaymentSessionDetails.resolves(
-      paymentSessionInfo
-    );
+    reqMock.mongo.customerPaymentsRepository.find.resolves({
+      Item: paymentSessionInfo,
+    });
+    paymentRefundHelperMock.isT1PaymentType.returns(true);
     paymentRefundHelperMock.retrievePaymentServiceAccessToken.resolves(
       'access-token'
     );
-    paymentRefundHelperMock.identifySourceChannel.returns('channel-1');
     paymentMock.paymentRepository.requestRefundByTokenId.throws(
       new Error('downstream error')
     );
@@ -256,7 +292,7 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
 
   it('should log and rethrow string errors (cover catch branch)', async () => {
     // Sinon wraps thrown strings as Error objects with message: 'fail-string: Sinon-provided fail-string'
-    paymentRefundHelperMock.findPaymentSessionDetails.throws('fail-string');
+    reqMock.mongo.customerPaymentsRepository.find.throws('fail-string');
     const requestPaymentRefund =
       await getRequestPaymentRefundWithMockedDataDictionary();
     let thrown = false;
@@ -276,7 +312,7 @@ describe('Service :: PaymentRefundService :: requestPaymentRefund', () => {
   });
 
   it('should log and rethrow number errors (cover catch branch)', async () => {
-    paymentRefundHelperMock.findPaymentSessionDetails.throws(12345);
+    reqMock.mongo.customerPaymentsRepository.find.throws(12345);
     const requestPaymentRefund =
       await getRequestPaymentRefundWithMockedDataDictionary();
     let thrown = false;

@@ -8,6 +8,7 @@ import {
   getInitVoucher,
   getPaymentServiceCredentials,
   getRefundAuthToken,
+  getUpdateVoucherAuthToken,
 } from '../../../src/repositories/secretManager/paymentServiceRepository.js';
 
 const lab = Lab.script();
@@ -97,8 +98,12 @@ describe('Repository :: SecretManager :: Payment Service Repository :: getInitVo
   });
 
   it('should return decoded secret when found', async () => {
-    const mockSecret = 'mock-secret';
-    secretManagerClient.get.resolves(mockSecret);
+    const decodedPayload = { VOUCHER_AUTH_TOKEN: 'init-token' };
+    const b64Secret = Buffer.from(
+      JSON.stringify(decodedPayload),
+      'utf8'
+    ).toString('base64');
+    secretManagerClient.get.resolves(b64Secret);
 
     const result = await getInitVoucher(
       secretManagerClient,
@@ -106,7 +111,7 @@ describe('Repository :: SecretManager :: Payment Service Repository :: getInitVo
       'v1',
       '00010'
     );
-    expect(result).to.equal(Buffer.from(mockSecret, 'base64').toString('utf8'));
+    expect(result).to.equal('init-token');
   });
 
   it('should rethrow unexpected errors', async () => {
@@ -258,6 +263,74 @@ describe('Repository :: SecretManager :: Payment Service Repository :: getRefund
 
     try {
       await getRefundAuthToken(secretManagerClient);
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.message).to.equal('panic');
+    }
+  });
+});
+
+describe('Repository :: SecretManager :: Payment Service Repository :: getUpdateVoucherAuthToken', () => {
+  let secretManagerClient;
+  let configGetStub;
+
+  beforeEach(() => {
+    secretManagerClient = { get: Sinon.stub() };
+    configGetStub = Sinon.stub(config, 'get');
+    configGetStub.withArgs('gcp.projectID').returns('mock-project');
+    configGetStub.withArgs('gcp.secret.prefix').returns('mock-prefix');
+    configGetStub.withArgs('gcp.secret.suffix').returns('mock-suffix');
+  });
+
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should throw InvalidOutboundRequest when secret is missing', async () => {
+    secretManagerClient.get.resolves(null);
+
+    try {
+      await getUpdateVoucherAuthToken(
+        secretManagerClient,
+        '00010',
+        'v1',
+        'voucher'
+      );
+      throw new Error('Expected to throw');
+    } catch (err) {
+      expect(err.type).to.equal('InvalidOutboundRequest');
+      expect(err.details).to.include('secret manager config not found');
+    }
+  });
+
+  it('should return VOUCHER_AUTH_TOKEN when found', async () => {
+    const decodedPayload = { VOUCHER_AUTH_TOKEN: 'xxx' };
+    const b64Secret = Buffer.from(
+      JSON.stringify(decodedPayload),
+      'utf8'
+    ).toString('base64');
+
+    secretManagerClient.get.resolves(b64Secret);
+
+    const result = await getUpdateVoucherAuthToken(
+      secretManagerClient,
+      '00010',
+      'v1',
+      'voucher'
+    );
+    expect(result).to.equal('xxx');
+  });
+
+  it('should rethrow unexpected errors', async () => {
+    secretManagerClient.get.rejects(new Error('panic'));
+
+    try {
+      await getUpdateVoucherAuthToken(
+        secretManagerClient,
+        '00010',
+        'v1',
+        'voucher'
+      );
       throw new Error('Expected to throw');
     } catch (err) {
       expect(err.message).to.equal('panic');

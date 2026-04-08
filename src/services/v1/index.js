@@ -10,9 +10,9 @@ import * as gorTokenService from './gorTokenService.js';
 import * as oneApiService from './oneApiService.js';
 import * as paymentAuthService from './paymentAuthService.js';
 import * as paymentLoyaltyService from './paymentLoyaltyService.js';
-import * as paymentRequestService from './paymentRequestService.js';
 import * as paymentRefundHelper from './paymentRefundHelper.js';
 import * as paymentRefundService from './paymentRefundService.js';
+import * as paymentRequestService from './paymentRequestService.js';
 import * as paymentSessionCallbackService from './paymentSessionCallbackService.js';
 import * as paymentsRetrievalService from './paymentsRetrievalService.js';
 import * as paymentsService from './paymentsService.js';
@@ -22,8 +22,6 @@ import * as questIndicatorService from './questIndicatorService.js';
 import * as receiptService from './receiptService.js';
 import * as refundService from './refundService.js';
 import * as validationService from './validationService.js';
-import * as paymentRefundHelper from './paymentRefundHelper.js';
-import * as paymentRefundService from './paymentRefundService.js';
 
 export {
   amaxService,
@@ -38,9 +36,9 @@ export {
   oneApiService,
   paymentAuthService,
   paymentLoyaltyService,
-  paymentRequestService,
   paymentRefundHelper,
   paymentRefundService,
+  paymentRequestService,
   paymentSessionCallbackService,
   paymentsRetrievalService,
   paymentsService,
@@ -50,6 +48,4 @@ export {
   receiptService,
   refundService,
   validationService,
-  paymentRefundHelper,
-  paymentRefundService,
 };

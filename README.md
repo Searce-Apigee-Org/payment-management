@@ -44,7 +44,6 @@ Follow these steps to run the application locally:
    ```
 
 2. **Set up the environment file**:
-
    - Create a .env file in the project root directory.
    - Copy the contents of .env.example into the new .env file.
 
@@ -56,12 +55,10 @@ Follow these steps to run the application locally:
    ```
 
    The application will start at:
-
    - Hapi.js API: `http://localhost:3000`
 
 4. **Access the Swagger UI**:
    Visit the Swagger UI for API documentation at:
-
    - `http://localhost:3000/docs`
 
 5. **Stop the application**:

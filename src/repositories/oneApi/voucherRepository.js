@@ -6,7 +6,6 @@ const {
   httpProtocol: protocol,
   webServiceHost: host,
   requestTimeout: timeout,
-  accessToken: token,
   endpoints: { getVoucher: getVoucherEndpoint, useVoucher: useVoucherEndpoint },
 } = config.get('oneApi');
 
@@ -29,14 +28,14 @@ const getVoucherData = async (voucherRequest, voucherToken, http) => {
   }
 };
 
-const updateVoucher = async (req, requestBody) => {
+const updateVoucher = async (req, requestBody, accessToken) => {
   const { http } = req;
   try {
     const url = `${protocol}://${host}/${useVoucherEndpoint}`;
 
     const options = {
       headers: {
-        Authorization: token,
+        Authorization: accessToken,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },

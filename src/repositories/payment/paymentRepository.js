@@ -4,10 +4,7 @@ import { config } from '../../../convict/config.js';
 const {
   httpProtocol,
   paymentServiceHost,
-  endpoints: {
-    accessToken: paymentAccessToken,
-    esimSession: paymentEsimSession,
-  },
+  endpoints: { paymentAccessToken, paymentEsimSession, requestRefundPayment },
   paymentEsimSessionTimeout,
   refundTokenTimeout,
 } = config.get('payment');

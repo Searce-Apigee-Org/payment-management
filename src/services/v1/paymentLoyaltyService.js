@@ -1,6 +1,5 @@
 import { constants, objectUtil } from '../../util/index.js';
 
-//TODO - merge with NG1
 const handleLoyaltyPoints = async (
   req,
   paymentDetails,

@@ -18,7 +18,6 @@ const retrievePaymentServiceAccessToken = async (req, channelId) => {
     let clientId;
     let principalId;
 
-    // 1. Try cache first
     const cachedToken =
       await tokenStore.paymentRepository.fetchAccessTokenByChannel(
         req,
@@ -33,8 +32,6 @@ const retrievePaymentServiceAccessToken = async (req, channelId) => {
     }
 
     logger.info('TRIED_CACHED_TOKEN', cachedToken);
-
-    //2. If no cache, will use the channelID from paymentSessionInfo to retrieve secret
 
     if (channelId) {
       const rawCredentials =
@@ -81,7 +78,6 @@ const retrievePaymentServiceAccessToken = async (req, channelId) => {
         );
       }
     } else {
-      // 5. Fallback: if clientId is still not found, use a default or throw error
       logger.error('CLIENT_ID_NOT_FOUND', { tokenPaymentId, headers });
       throw new Error('Unable to determine clientId for secret manager fetch');
     }
@@ -134,7 +130,6 @@ const retrieveGPayOAccessTokenByChannel = async (req, channelId) => {
 
     logger.info('TRIED_CACHED_GPAYO_TOKEN', cachedToken);
 
-    // 2. If no cache, use the channelID to retrieve secret from Secret Manager
     if (channelId) {
       const rawCredentials =
         await secretManager.authorizationRepository.getAuthorizationByChannel(

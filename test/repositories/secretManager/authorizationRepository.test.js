@@ -40,20 +40,24 @@ describe('Repository :: SecretManager :: getAuthorizationByChannel', () => {
     expect(result).to.equal({ clientId: 'client1', clientSecret: 'secret1' });
   });
 
-  it('should parse colon-separated secret', async () => {
+  it('should return OperationFailed for non-JSON decoded secrets (e.g., colon-separated)', async () => {
     secretManagerClientMock.get.resolves('Y2xpZW50MjpzZWNyZXQy');
     decodeB64Stub.returns('client2:secret2');
 
-    const result = await authorizationRepository.getAuthorizationByChannel(
-      secretManagerClientMock,
-      'client2',
-      'refund',
-      { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
-    );
-    expect(result).to.equal({ clientId: 'client2', clientSecret: 'secret2' });
+    try {
+      await authorizationRepository.getAuthorizationByChannel(
+        secretManagerClientMock,
+        'client2',
+        'refund',
+        { decodeB64: decodeB64Stub, secretUtil: secretUtilStub }
+      );
+      throw new Error('Expected failure but succeeded');
+    } catch (err) {
+      expect(err.type).to.equal('OperationFailed');
+    }
   });
 
-  it('should throw for invalid secret format', async () => {
+  it('should throw OperationFailed for invalid secret format (non-JSON)', async () => {
     secretManagerClientMock.get.resolves('aW52YWxpZA==');
     decodeB64Stub.returns('invalid');
     try {
@@ -65,7 +69,7 @@ describe('Repository :: SecretManager :: getAuthorizationByChannel', () => {
       );
       throw new Error('Expected failure but succeeded');
     } catch (err) {
-      expect(err.type).to.equal('InvalidSecretFormat');
+      expect(err.type).to.equal('OperationFailed');
     }
   });
 

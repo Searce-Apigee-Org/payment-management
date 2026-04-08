@@ -143,7 +143,7 @@ const find = async ({ tokenPaymentId }) => {
     }).lean();
     logger.info('FIND_CUSTOMER_PAYMENT_RESPONSE', payment);
 
-    return { Item: payment }; // To match legacy DynamoDB-style return, if needed
+    return { Item: payment };
   } catch (err) {
     logger.debug('FIND_CUSTOMER_PAYMENT_ERROR', err);
     throw err;
