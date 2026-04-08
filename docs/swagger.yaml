@@ -17,7 +17,7 @@ securityDefinitions:
 security:
   - jwt: []
 swagger: '2.0'
-host: 0.0.0.0:3000
+host: 0.0.0.0:8080
 tags: []
 paths:
   /v1/paymentManagement/payments:
@@ -28,10 +28,8 @@ paths:
       operationId: getV1PaymentmanagementPayments
       parameters:
         - type: string
-          x-convert:
-            trim: true
-          name: receiptId
-          in: path
+          name: authorization
+          in: header
           required: true
         - type: string
           name: user-token
@@ -49,7 +47,7 @@ paths:
           description: |2-
              HIP Parameter : MSISDN
              Rudy Parameter : msisdn
-          pattern: ^(9|09|639|632|8|08|638)[0-9]{9}$
+          pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
           name: mobileNumber
           in: query
           required: false
@@ -290,51 +288,6 @@ paths:
           schema:
             $ref: '#/definitions/InternalServerError'
           description: Internal Server Error
-  /v1/paymentManagement/topUp/{customerId}:
-    post:
-      summary: To allow users to buy retailer/consumer load.
-      operationId: postV1PaymentmanagementTopupCustomerid
-      parameters:
-        - type: string
-          name: deviceid
-          in: header
-          required: false
-        - type: string
-          pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
-          name: customerId
-          in: path
-          required: true
-        - in: body
-          name: body
-          schema:
-            $ref: '#/definitions/BuyLoadPayloadModel'
-      tags:
-        - v1
-      responses:
-        '201':
-          schema:
-            $ref: '#/definitions/BuyLoadResponse'
-          description: Created
-        '400':
-          schema:
-            $ref: '#/definitions/BadRequestError'
-          description: Bad Request
-        '401':
-          schema:
-            $ref: '#/definitions/UnauthorizedError'
-          description: Unauthorized
-        '403':
-          schema:
-            $ref: '#/definitions/ForbiddenError'
-          description: Forbidden
-        '404':
-          schema:
-            $ref: '#/definitions/NotFoundError'
-          description: Not Found
-        '500':
-          schema:
-            $ref: '#/definitions/InternalServerError'
-          description: Internal Server Error
   /v1/paymentManagement/esim/payments/session:
     post:
       summary: >-
@@ -394,82 +347,23 @@ paths:
           schema:
             $ref: '#/definitions/InternalServerError'
           description: Internal Server Error
-  /v1/paymentManagement/payments/{tokenPaymentId}/refund:
+  /v1/paymentManagement/payments/sessions/callback:
     post:
-      summary: This API will call Refund API directly from PayO to process GCash refund
-      operationId: postV1PaymentmanagementPaymentsTokenpaymentidRefund
+      summary: An API for receiving payment session data from Payment Service
+      operationId: postV1PaymentmanagementPaymentsSessionsCallback
+      description: An API for receiving payment session data from Payment Service
       parameters:
-        - type: string
-          x-convert:
-            trim: true
-          name: authorization
-          in: header
-          required: false
-        - type: string
-          x-convert:
-            trim: true
-          name: tokenPaymentId
-          in: path
-          required: true
         - in: body
           name: body
           schema:
-            $ref: '#/definitions/Model1'
+            $ref: '#/definitions/Model5'
       tags:
         - v1
       responses:
-        '201':
+        '200':
           schema:
-            $ref: '#/definitions/RequestRefundPaymentResponse'
-          description: Created
-        '400':
-          schema:
-            $ref: '#/definitions/BadRequestError'
-          description: Bad Request
-        '401':
-          schema:
-            $ref: '#/definitions/UnauthorizedError'
-          description: Unauthorized
-        '403':
-          schema:
-            $ref: '#/definitions/ForbiddenError'
-          description: Forbidden
-        '404':
-          schema:
-            $ref: '#/definitions/NotFoundError'
-          description: Not Found
-        '500':
-          schema:
-            $ref: '#/definitions/InternalServerError'
-          description: Internal Server Error
-  /v1/paymentManagement/payments/{tokenPaymentId}/refund:
-    post:
-      summary: This API will call Refund API directly from PayO to process GCash refund
-      operationId: postV1PaymentmanagementPaymentsTokenpaymentidRefund
-      parameters:
-        - type: string
-          x-convert:
-            trim: true
-          name: authorization
-          in: header
-          required: false
-        - type: string
-          x-convert:
-            trim: true
-          name: tokenPaymentId
-          in: path
-          required: true
-        - in: body
-          name: body
-          schema:
-            $ref: '#/definitions/Model3'
-      tags:
-        - v1
-      responses:
-        '201':
-          schema:
-            $ref: '#/definitions/Model4'
-          description: Created
+            $ref: '#/definitions/PaymentSessionCallbackResponse'
+          description: Successful
         '400':
           schema:
             $ref: '#/definitions/BadRequestError'
@@ -1102,27 +996,6 @@ definitions:
       - countryCode
       - paymentInformation
       - settlementInformation
-  BuyLoadPayloadModel:
-    type: object
-    properties:
-      keyword:
-        type: string
-      wallet:
-        type: string
-      amount:
-        type: number
-        minimum: 1
-      tokenPaymentId:
-        type: string
-      agentName:
-        type: string
-      externalTransactionId:
-        type: string
-    required:
-      - amount
-      - tokenPaymentId
-  BuyLoadResponse:
-    type: object
   PaymentyTypeModel:
     type: string
     default: XENDIT
@@ -1301,7 +1174,7 @@ definitions:
     properties:
       mobileNumber:
         type: string
-        pattern: ^(9|09|639|632|8|08|638)[0-9]{9}$
+        pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
         x-convert:
           trim: true
       emailAddress:
@@ -1456,32 +1329,6 @@ definitions:
         $ref: '#/definitions/PaymentSessionCallbackResultModel'
     required:
       - result
-  Model3:
-    type: object
-    properties:
-      refundAmount:
-        type: number
-        x-constraint:
-          precision: 2
-          sign: positive
-    required:
-      - refundAmount
-  RequestPaymentRefundResultModel:
-    type: object
-    properties:
-      statusCode:
-        type: number
-        enum:
-          - 202
-    required:
-      - statusCode
-  RequestRefundPaymentResponse:
-    type: object
-    properties:
-      result:
-        $ref: '#/definitions/RequestPaymentRefundResultModel'
-    required:
-      - result
 x-alt-definitions:
   Model1:
     type: object
@@ -1507,122 +1354,3 @@ x-alt-definitions:
         pattern: \S
     required:
       - message
-      - details
-  UnauthorizedError:
-    type: object
-    properties:
-      error:
-        $ref: '#/definitions/UnauthorizedErrorModel'
-    required:
-      - error
-  ForbiddenErrorModel:
-    type: object
-    properties:
-      statusCode:
-        type: string
-      code:
-        type: string
-        example: 40301
-      message:
-        type: string
-        example: Insufficient Scope
-      details:
-        type: string
-        example: >-
-          The authorization header has insufficient permissions to access the
-          API resource.
-      displayMessage:
-        type: string
-    required:
-      - code
-      - message
-      - details
-  ForbiddenError:
-    type: object
-    properties:
-      error:
-        $ref: '#/definitions/ForbiddenErrorModel'
-    required:
-      - error
-  NotFoundErrorModel:
-    type: object
-    properties:
-      statusCode:
-        type: string
-      code:
-        type: string
-        example: 40403
-      message:
-        type: string
-        example: Resource Not Found
-      details:
-        type: string
-        example: The provided OTP reference ID is not found
-      displayMessage:
-        type: string
-    required:
-      - code
-      - message
-      - details
-  NotFoundError:
-    type: object
-    properties:
-      error:
-        $ref: '#/definitions/NotFoundErrorModel'
-    required:
-      - error
-  InternalServerErrorModel:
-    type: object
-    properties:
-      statusCode:
-        type: string
-      code:
-        type: string
-        example: 50001
-      message:
-        type: string
-        example: Internal Server Error
-      details:
-        type: string
-        example: >-
-          The server encountered an unexpected condition that prevented it from
-          fulfilling the request.
-      displayMessage:
-        type: string
-    required:
-      - code
-      - message
-      - details
-  InternalServerError:
-    type: object
-    properties:
-      error:
-        $ref: '#/definitions/InternalServerErrorModel'
-    required:
-      - error
-  Model1:
-    type: object
-    properties:
-      refundAmount:
-        type: number
-        x-constraint:
-          precision: 2
-          sign: positive
-    required:
-      - refundAmount
-  RequestPaymentRefundResultModel:
-    type: object
-    properties:
-      statusCode:
-        type: number
-        enum:
-          - 202
-    required:
-      - statusCode
-  Model2:
-    type: object
-    properties:
-      result:
-        $ref: '#/definitions/RequestPaymentRefundResultModel'
-    required:
-      - result

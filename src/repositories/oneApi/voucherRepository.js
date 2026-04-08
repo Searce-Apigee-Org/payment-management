@@ -1,17 +1,15 @@
-import { logger } from '@globetel/cxs-core/core/logger/index.js';
+import logger from '@globetel/cxs-core/core/logger/logger.js';
 import { config } from '../../../convict/config.js';
-import { buyLoadUtil } from '../../util/index.js';
-
-const {
-  httpProtocol: protocol,
-  webServiceHost: host,
-  requestTimeout: timeout,
-  accessToken: token,
-  endpoints: { getVoucher: getVoucherEndpoint, useVoucher: useVoucherEndpoint },
-} = config.get('oneApi');
 
 const getVoucherData = async (voucherRequest, voucherToken, http) => {
-  const url = `${protocol}://${host}/${getVoucherEndpoint}`;
+  const {
+    host,
+    httpProtocol,
+    accessToken,
+    endpoints: { getVoucher: getVoucherEndpoint },
+  } = config.get('oneApi');
+
+  const url = `${httpProtocol}://${host}/${getVoucherEndpoint}`;
 
   const options = {
     headers: {
@@ -29,32 +27,4 @@ const getVoucherData = async (voucherRequest, voucherToken, http) => {
   }
 };
 
-const updateVoucher = async (req, requestBody) => {
-  const { http } = req;
-  try {
-    const url = `${protocol}://${host}/${useVoucherEndpoint}`;
-
-    const options = {
-      headers: {
-        Authorization: token,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      timeout,
-    };
-
-    const requestList = buyLoadUtil.populateRequestBody(requestBody);
-
-    if (requestList?.length) {
-      for (const voucherRequest of requestList) {
-        const body = { voucherRequest };
-        await http.put(url, body, options, false, false);
-      }
-    }
-  } catch (error) {
-    logger.debug('ONE_API_UPDATE_VOUCHER_ERROR', error);
-    throw error;
-  }
-};
-
-export { getVoucherData, updateVoucher };
+export { getVoucherData };

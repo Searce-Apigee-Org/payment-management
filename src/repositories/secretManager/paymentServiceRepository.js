@@ -88,7 +88,7 @@ const get = async (secretManagerClient, secretEntity) => {
     const decodedSecret = decodeB64(secret);
     return decodedSecret;
   } catch (error) {
-    logger.debug('SECRET_MANAGER_GET_FAILED', error);
+    logger.debug('SECRET_MANAGET_GET_FAILED', error);
     throw error;
   }
 };
@@ -113,32 +113,7 @@ const getGcashProcessingFee = async (secretManagerClient) => {
     const decodedSecret = decodeB64(secret);
     return decodedSecret;
   } catch (error) {
-    logger.debug('SECRET_MANAGER_GET_FAILED', error);
-    throw error;
-  }
-};
-
-const getRefundAuthToken = async (secretManagerClient) => {
-  const secretEntity = constants.SECRET_ENTITY.REFUND_AUTH_TOKEN;
-
-  const secretName = secretUtil.buildSecretName(secretEntity);
-
-  logger.info(`Secret name is ${secretName}`);
-
-  try {
-    const secret = await secretManagerClient.get(secretName);
-
-    if (!secret) {
-      throw {
-        type: 'InvalidOutboundRequest',
-        details: `'${secretName}' in secret manager config not found.`,
-      };
-    }
-
-    const decodedSecret = decodeB64(secret);
-    return decodedSecret;
-  } catch (error) {
-    logger.debug('SECRET_MANAGER_REFUND_AUTH_TOKEN', error);
+    logger.debug('SECRET_MANAGET_GET_FAILED', error);
     throw error;
   }
 };
@@ -148,5 +123,4 @@ export {
   getGcashProcessingFee,
   getInitVoucher,
   getPaymentServiceCredentials,
-  getRefundAuthToken,
 };

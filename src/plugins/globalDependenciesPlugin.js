@@ -8,10 +8,8 @@ const globalDependenciesPlugin = {
       http,
       validationService,
       paymentAuthService,
-      payoT2AuthService,
       tokenStore,
       payo,
-      payoT2,
       mongoModels,
       paymentTypeModels,
       mongo,
@@ -22,7 +20,6 @@ const globalDependenciesPlugin = {
       dno,
       enrolledAccountsService,
       oonaService,
-      singlifeService,
       helpers,
       priceValidationService,
       rudy,
@@ -45,8 +42,6 @@ const globalDependenciesPlugin = {
       csPaymentsSettlementService,
       gorTokenService,
       paymentRequestService,
-      amax,
-      paymentRefundHelper,
     } = options;
 
     // models
@@ -56,7 +51,6 @@ const globalDependenciesPlugin = {
     // repositories
     server.decorate('request', 'secretManager', secretManager);
     server.decorate('request', 'payo', payo);
-    server.decorate('request', 'payoT2', payoT2);
     server.decorate('request', 'tokenStore', tokenStore);
     server.decorate('request', 'mongo', mongo);
     server.decorate('request', 'gcs', gcs);
@@ -67,7 +61,6 @@ const globalDependenciesPlugin = {
     server.decorate('request', 'cxs', cxs);
     server.decorate('request', 'hip', hip);
     server.decorate('request', 'gor', gor);
-    server.decorate('request', 'amax', amax);
 
     // clients
     server.decorate('request', 'secret', secret);
@@ -80,7 +73,6 @@ const globalDependenciesPlugin = {
     // services
     server.decorate('request', 'validationService', validationService);
     server.decorate('request', 'paymentAuthService', paymentAuthService);
-    server.decorate('request', 'payoT2AuthService', payoT2AuthService);
     server.decorate('request', 'tenantTokenService', tenantTokenService);
     server.decorate('request', 'dnoService', dnoService);
     server.decorate(
@@ -89,7 +81,6 @@ const globalDependenciesPlugin = {
       enrolledAccountsService
     );
     server.decorate('request', 'oonaService', oonaService);
-    server.decorate('request', 'singlifeService', singlifeService);
     server.decorate('request', 'serviceHelpers', helpers);
     server.decorate(
       'request',
@@ -129,7 +120,6 @@ const globalDependenciesPlugin = {
       csPaymentsSettlementService
     );
     server.decorate('request', 'gorTokenService', gorTokenService);
-    server.decorate('request', 'paymentRefundHelper', paymentRefundHelper);
   },
 };
 

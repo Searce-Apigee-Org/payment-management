@@ -127,27 +127,8 @@ const update = async (keys) => {
     logger.info('UPDATE_CUSTOMER_PAYMENT_RESPONSE', { success: true });
   } catch (err) {
     logger.debug('UPDATE_CUSTOMER_PAYMENT_ERROR', err);
-  }
-};
-
-const find = async ({ tokenPaymentId }) => {
-  logger.info('FIND_CUSTOMER_PAYMENT_REQUEST', { tokenPaymentId });
-
-  try {
-    if (!tokenPaymentId) {
-      throw new Error('Missing required field: tokenPaymentId');
-    }
-
-    const payment = await CustomerPaymentModel.findOne({
-      tokenPaymentId,
-    }).lean();
-    logger.info('FIND_CUSTOMER_PAYMENT_RESPONSE', payment);
-
-    return { Item: payment }; // To match legacy DynamoDB-style return, if needed
-  } catch (err) {
-    logger.debug('FIND_CUSTOMER_PAYMENT_ERROR', err);
     throw err;
   }
 };
 
-export { create, find, findOne, put, update, updateOne };
+export { create, findOne, put, update, updateOne };

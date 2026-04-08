@@ -9,7 +9,6 @@ const {
     esimSession: paymentEsimSession,
   },
   paymentEsimSessionTimeout,
-  refundTokenTimeout,
 } = config.get('payment');
 
 const getAccessToken = async (http, query) => {
@@ -45,19 +44,4 @@ const esimPaymentSession = async (http, payload, headers) => {
   }
 };
 
-const requestRefundByTokenId = async (http, payload, headers) => {
-  const endpoint = requestRefundPayment;
-  const url = `${httpProtocol}://${paymentServiceHost}/${endpoint}`;
-  const options = {
-    headers,
-    timeout: refundTokenTimeout,
-  };
-  try {
-    const response = await http.post(url, payload, options, false, false);
-    return response;
-  } catch (err) {
-    throw { type: 'OperationFailed' };
-  }
-};
-
-export { esimPaymentSession, getAccessToken, requestRefundByTokenId };
+export { esimPaymentSession, getAccessToken };

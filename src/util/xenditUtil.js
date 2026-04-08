@@ -216,7 +216,4 @@ const validateXenditRequest = (req, xenditRequest) => {
   }
 };
 
-const isXenditPayment = (paymentType) =>
-  paymentType?.toUpperCase() === constants.PAYMENT_TYPES.XENDIT;
-
-export { isXenditPayment, validateXenditRequest };
+export { validateXenditRequest };

@@ -154,7 +154,7 @@ const buildPaymentEntity = async (
     tokenPaymentId,
     channelId,
     paymentType: cxsRequest.paymentType,
-    createDate: new Date().toISOString(),
+    createdDate: new Date().toISOString(),
     userToken: headers['user-token'],
     deviceId: headers['DeviceId'],
     settlementDetails: [],
@@ -301,14 +301,6 @@ const filterPayments = (payments, startDate, endDate) => {
   );
 };
 
-const identifySourceChannel = (tokenPaymentId) => {
-  const source = _.find(
-    Object.entries(constants.promos.TRANSACTION_PREFIX_CHANNEL_EQV),
-    ([key]) => tokenPaymentId.startsWith(key)
-  );
-  return source?.[0];
-};
-
 export {
   buildPaymentEntity,
   calculateVoucherAmount,
@@ -318,6 +310,5 @@ export {
   formatAmount,
   formatPayments,
   getRequestClientId,
-  identifySourceChannel,
   validateTokenSDK,
 };

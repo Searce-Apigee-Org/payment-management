@@ -4,7 +4,6 @@ import Sinon from 'sinon';
 import {
   esimPaymentSession,
   getAccessToken,
-  requestRefundByTokenId,
 } from '../../../src/repositories/payment/paymentRepository.js';
 
 const lab = Lab.script();
@@ -18,52 +17,6 @@ beforeEach(() => {
     get: Sinon.stub(),
     post: Sinon.stub(),
   };
-});
-
-describe('Repository :: HIP :: paymentRepository :: requestRefundByTokenId', () => {
-  const mockHeaders = {
-    'x-request-id': 'abcde',
-  };
-
-  const mockPayload = {
-    command: {
-      name: 'Refund',
-      payload: {
-        tokenPaymentId: 'token-123',
-        refundAmount: 100,
-      },
-    },
-  };
-
-  const mockRefundResponse = {
-    status: 200,
-    data: { message: 'Refund processed' },
-  };
-
-  it('should return refund response when request succeeds', async () => {
-    const stub = http.post.resolves(mockRefundResponse);
-
-    const response = await requestRefundByTokenId(
-      http,
-      mockPayload,
-      mockHeaders
-    );
-
-    expect(stub.calledOnce).to.be.true();
-    expect(response).to.equal(mockRefundResponse);
-  });
-
-  it('should throw OperationFailed when request fails', async () => {
-    http.post.rejects(new Error('Refund error'));
-
-    try {
-      await requestRefundByTokenId(http, mockPayload, mockHeaders);
-      throw new Error('Expected failure but succeeded');
-    } catch (err) {
-      expect(err).to.be.an.object();
-      expect(err.type).to.equal('OperationFailed');
-    }
-  });
 });
 
 afterEach(() => {
