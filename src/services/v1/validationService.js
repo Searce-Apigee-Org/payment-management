@@ -65,6 +65,21 @@ const validateAccountBrand = async (mobileNumber, req) => {
 };
 
 const validatePaymentInformation = async (req) => {
+  // Defensive validation for required fields
+  if (
+    !req.app ||
+    !req.app.cxsRequest ||
+    typeof req.app.cxsRequest !== 'object' ||
+    !req.app.cxsRequest.paymentType ||
+    !req.app.cxsRequest.settlementInformation
+  ) {
+    throw {
+      type: 'InvalidRequest',
+      message:
+        'Missing or invalid cxsRequest. Required fields: paymentType, settlementInformation.',
+    };
+  }
+
   const {
     headers,
     app: {
