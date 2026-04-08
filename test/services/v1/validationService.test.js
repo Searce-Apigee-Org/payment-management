@@ -271,7 +271,7 @@ describe('Service :: v1 :: ValidationService :: validateTransactions', () => {
         },
       },
       mongo: {
-        ChannelConfigRepository: {
+        channelConfigRepository: {
           findOneById: sinon.stub().resolves(mockChannelConfig),
         },
       },

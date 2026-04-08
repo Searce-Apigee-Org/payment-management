@@ -212,7 +212,7 @@ const validateTransactions = async (req, target) => {
     isVoucherDiscount = true;
   }
 
-  let channelConfig = await mongo.ChannelConfigRepository.findOneById(
+  let channelConfig = await mongo.channelConfigRepository.findOneById(
     principalId,
     req
   );
