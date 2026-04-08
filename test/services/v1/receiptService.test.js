@@ -30,6 +30,8 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
       secretManager: {
         rudyRepository: {
           getRudyAuthCredentials: Sinon.stub(),
+        },
+        credentialsRepository: {
           getPaymentsCredentials: Sinon.stub(),
         },
       },
@@ -68,7 +70,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
 
@@ -83,7 +85,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
     req.rudy.rudyRepository.getReceiptUrl.resolves(
@@ -118,7 +120,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
 
@@ -137,7 +139,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
 
@@ -153,7 +155,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
 
@@ -172,7 +174,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
 
@@ -187,7 +189,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
       req.secretManager.rudyRepository.getRudyAuthCredentials
     );
     Sinon.assert.calledOnce(
-      req.secretManager.rudyRepository.getPaymentsCredentials
+      req.secretManager.credentialsRepository.getPaymentsCredentials
     );
   });
 
@@ -199,7 +201,7 @@ describe('Services :: V1 :: ReceiptService :: getPaymentReceipt', () => {
     req.secretManager.rudyRepository.getRudyAuthCredentials.resolves(
       'AUTH_TOKEN'
     );
-    req.secretManager.rudyRepository.getPaymentsCredentials.resolves(
+    req.secretManager.credentialsRepository.getPaymentsCredentials.resolves(
       'TOKEN_SECRET'
     );
     req.rudy.rudyRepository.getReceiptUrl.resolves(

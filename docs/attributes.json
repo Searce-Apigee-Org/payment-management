@@ -81,6 +81,33 @@
         "description": "To update the payment status of a change sim transaction",
         "status": "LIVE",
         "sequenceFilePath": "docs/sequence/processCSPayments-v1.mmd"
+      },
+      {
+        "displayName": "RequestPaymentRefundRoutes-V1",
+        "identifier": "request-payment-refund-v1",
+        "path": "/v1/paymentManagement/payments/{tokenPaymentId}/refund",
+        "method": "POST",
+        "description": "This API will call Refund API directly from PayO to process GCash refund.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/requestPaymentRefund-v1.mmd"
+      },
+      {
+        "displayName": "BuyLoad-V1",
+        "identifier": "buy-load-v1",
+        "path": "/v1/paymentManagement/topUp/{customerId}",
+        "method": "POST",
+        "description": "To allow users to buy retailer/consumer load.",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/buyLoad-v1.mmd"
+      },
+      {
+        "displayName": "CreateWebPaymentSession-V2",
+        "identifier": "create-web-payment-session-v2",
+        "path": "/v2/paymentManagement/payments/websessions",
+        "method": "POST",
+        "description": "Creates a web payment session in GPayO T2",
+        "status": "LIVE",
+        "sequenceFilePath": "docs/sequence/createWebPaymentSession-v2.mmd"
       }
     ]
   }

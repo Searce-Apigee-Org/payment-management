@@ -2,7 +2,7 @@ import { logger } from '@globetel/cxs-core/core/logger/index.js';
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Sinon from 'sinon';
-import { getPayments } from '../../../src/services/v1/paymentsService.js';
+import { updateOnBuyLoad } from '../../../src/services/v1/paymentService.js';
 import * as constants from '../../../src/util/constants.js';
 
 const lab = Lab.script();
@@ -10,270 +10,98 @@ const { describe, it, beforeEach, afterEach } = lab;
 
 export { lab };
 
-describe('Service :: PaymentsService :: getPayments', () => {
-  let reqMock;
+describe('Service :: V1 :: paymentService :: updateOnBuyLoad', () => {
+  let req;
+  let paymentEntity;
+
+  const buildBearerTokenWithUuid = (uuid = 'user-uuid-1') => {
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'none', typ: 'JWT' })
+    ).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ uuid })).toString('base64url');
+    const signature = Buffer.from('sig').toString('base64url');
+    return `Bearer ${header}.${payload}.${signature}`;
+  };
 
   beforeEach(() => {
-    reqMock = {
-      query: {
-        accountNumber: undefined,
-        mobileNumber: undefined,
-        startDate: '2025-01-01',
-        endDate: '2025-01-31',
-      },
-      hip: {},
-      rudy: {},
-      secretManager: {},
-      jwt: {},
-      headers: {
-        'x-request-id': 'req-1',
-        deviceid: 'dev-1',
-        otpreferenceid: 'otp-1',
-      },
-      app: { dataDictionary: {} },
-      paymentsRetrievalService: {
-        getDetailsByMsisdn: Sinon.stub(),
-        retrievePayments: Sinon.stub(),
-        validateFields: Sinon.stub(),
-      },
-      soap: {},
+    paymentEntity = {
+      userToken: buildBearerTokenWithUuid('uuid-1'),
+      settlementDetails: [
+        {
+          provisionedAmount: undefined,
+          transactions: [
+            { amount: 10, provisionStatus: '', transactionId: '' },
+            { amount: 5, provisionStatus: '', transactionId: '' },
+            { amount: null, provisionStatus: '', transactionId: '' },
+          ],
+        },
+        {
+          transactions: [{ amount: 1, provisionStatus: '', transactionId: '' }],
+        },
+      ],
     };
+
+    req = {
+      payload: { tokenPaymentId: 'TPID-1' },
+      mongo: {
+        paymentRepository: {
+          findByPaymentId: Sinon.stub().resolves(paymentEntity),
+          savePayment: Sinon.stub().resolves({ success: true }),
+        },
+      },
+    };
+
+    Sinon.stub(logger, 'debug');
   });
 
   afterEach(() => {
     Sinon.restore();
   });
 
-  it('should return payments when accountNumber is provided (no MSISDN lookup)', async () => {
-    const payments = [{ id: 'pmt-1' }];
-    reqMock.query.accountNumber = 'ACC-12345';
-    reqMock.query.mobileNumber = '';
+  it('should set provisionStatus + transactionId on all settlement transactions, compute provisionedAmount on success, and save with userUuid', async () => {
+    await updateOnBuyLoad(req, constants.STATUS.SUCCESS, 'AMAX-TX-1');
 
-    reqMock.paymentsRetrievalService.retrievePayments.resolves(payments);
-
-    const result = await getPayments(reqMock);
-
-    expect(result).to.equal(payments);
-    Sinon.assert.notCalled(reqMock.paymentsRetrievalService.getDetailsByMsisdn);
-    Sinon.assert.calledOnceWithExactly(
-      reqMock.paymentsRetrievalService.retrievePayments,
-      'ACC-12345',
-      reqMock
-    );
-
-    const dd = reqMock.app.dataDictionary;
-    expect(dd).to.be.an.object();
-    expect(dd.transaction_status).to.equal(
-      constants.TRANSACTION_STATUS.SUCCESS
-    );
-    expect(dd.event_detail).to.be.an.object();
-    expect(dd.event_detail.response_parameters).to.equal(payments);
-    expect(dd.event_detail.request_authorization).to.equal({
-      deviceid: reqMock.headers.deviceid || '',
-      otpreferenceid: reqMock.headers.otpreferenceid || '',
-    });
-    expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
-  });
-
-  it('should lookup account by MSISDN when accountNumber is missing/blank', async () => {
-    const payments = [{ id: 'pmt-2' }];
-    reqMock.query.accountNumber = '';
-    reqMock.query.mobileNumber = '639171234567';
-
-    reqMock.paymentsRetrievalService.getDetailsByMsisdn.resolves(
-      'ACC-LOOKED-UP'
-    );
-    reqMock.paymentsRetrievalService.retrievePayments.resolves(payments);
-
-    const result = await getPayments(reqMock);
-
-    expect(result).to.equal(payments);
-    Sinon.assert.calledOnceWithExactly(
-      reqMock.paymentsRetrievalService.getDetailsByMsisdn,
-      reqMock
-    );
-    Sinon.assert.calledOnceWithExactly(
-      reqMock.paymentsRetrievalService.retrievePayments,
-      'ACC-LOOKED-UP',
-      reqMock
-    );
-
-    const dd = reqMock.app.dataDictionary;
-    expect(dd).to.be.an.object();
-    expect(dd.transaction_status).to.equal(
-      constants.TRANSACTION_STATUS.SUCCESS
-    );
-    expect(dd.event_detail).to.be.an.object();
-    expect(dd.event_detail.response_parameters).to.equal(payments);
-    expect(dd.event_detail.request_authorization).to.equal({
-      deviceid: reqMock.headers.deviceid || '',
-      otpreferenceid: reqMock.headers.otpreferenceid || '',
-    });
-    expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
-  });
-
-  it('should rethrow errors coming from retrievePayments', async () => {
-    reqMock.query.accountNumber = 'ACC-ERR';
-    const error = new Error('retrieve failed');
-    reqMock.paymentsRetrievalService.retrievePayments.rejects(error);
-    const debugStub = Sinon.stub(logger, 'debug');
-
-    try {
-      await getPayments(reqMock);
-      throw new Error('Expected to throw but succeeded');
-    } catch (err) {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.equal(error.message);
-      Sinon.assert.calledWithMatch(debugStub, 'API_GET_PAYMENTS_ERROR', error);
-
-      const dd = reqMock.app.dataDictionary;
-      expect(dd).to.be.an.object();
-      expect(dd.event_detail).to.be.an.object();
-      expect(dd.event_detail.request_authorization).to.equal({
-        deviceid: reqMock.headers.deviceid || '',
-        otpreferenceid: reqMock.headers.otpreferenceid || '',
-      });
-      expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
+    for (const settlementDetail of paymentEntity.settlementDetails) {
+      for (const t of settlementDetail.transactions) {
+        expect(t.provisionStatus).to.equal(constants.STATUS.SUCCESS);
+        expect(t.transactionId).to.equal('AMAX-TX-1');
+      }
     }
+
+    expect(paymentEntity.settlementDetails[0].provisionedAmount).to.equal(15);
+
+    Sinon.assert.calledOnce(req.mongo.paymentRepository.savePayment);
+    const [savedEntity, userUuid] =
+      req.mongo.paymentRepository.savePayment.firstCall.args;
+    expect(savedEntity).to.shallow.equal(paymentEntity);
+    expect(typeof savedEntity.lastUpdatedDate).to.equal('string');
+    expect(userUuid).to.equal('uuid-1');
   });
 
-  it('should throw InsufficientParameters when only startDate is provided', async () => {
-    reqMock.query.accountNumber = 'ACC-12345';
-    reqMock.query.startDate = '2025-01-01';
-    reqMock.query.endDate = undefined;
+  it('should not set provisionedAmount when provisionStatus is FAILED', async () => {
+    await updateOnBuyLoad(req, constants.STATUS.FAILED, 'AMAX-TX-2');
 
-    const debugStub = Sinon.stub(logger, 'debug');
+    expect(paymentEntity.settlementDetails[0].provisionedAmount).to.equal(
+      undefined
+    );
+    Sinon.assert.calledOnce(req.mongo.paymentRepository.savePayment);
+  });
+
+  it('should log and rethrow when findByPaymentId rejects', async () => {
+    const boom = new Error('db fail');
+    req.mongo.paymentRepository.findByPaymentId.rejects(boom);
 
     try {
-      await getPayments(reqMock);
-      throw new Error('Expected to throw but succeeded');
+      await updateOnBuyLoad(req, constants.STATUS.SUCCESS, 'AMAX-TX-3');
+      throw new Error('Expected failure but succeeded');
     } catch (err) {
-      expect(err).to.exist();
-      expect(err.type).to.equal('InsufficientParameters');
-      Sinon.assert.notCalled(
-        reqMock.paymentsRetrievalService.getDetailsByMsisdn
+      expect(err).to.shallow.equal(boom);
+      Sinon.assert.calledWithMatch(
+        logger.debug,
+        'PAYMENT_SERVICE_UPDATE_ON_BUYLOAD_ERROR',
+        boom
       );
-      Sinon.assert.notCalled(reqMock.paymentsRetrievalService.retrievePayments);
-      Sinon.assert.calledWithMatch(debugStub, 'API_GET_PAYMENTS_ERROR', err);
-
-      const dd = reqMock.app.dataDictionary;
-      expect(dd).to.be.an.object();
-      expect(dd.event_detail).to.be.an.object();
-      expect(dd.event_detail.request_authorization).to.equal({
-        deviceid: reqMock.headers.deviceid || '',
-        otpreferenceid: reqMock.headers.otpreferenceid || '',
-      });
-      expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
+      Sinon.assert.notCalled(req.mongo.paymentRepository.savePayment);
     }
-  });
-
-  it('should throw InsufficientParameters when only endDate is provided', async () => {
-    reqMock.query.accountNumber = 'ACC-12345';
-    reqMock.query.startDate = undefined;
-    reqMock.query.endDate = '2025-01-31';
-
-    const debugStub = Sinon.stub(logger, 'debug');
-
-    try {
-      await getPayments(reqMock);
-      throw new Error('Expected to throw but succeeded');
-    } catch (err) {
-      expect(err).to.exist();
-      expect(err.type).to.equal('InsufficientParameters');
-      Sinon.assert.notCalled(
-        reqMock.paymentsRetrievalService.getDetailsByMsisdn
-      );
-      Sinon.assert.notCalled(reqMock.paymentsRetrievalService.retrievePayments);
-      Sinon.assert.calledWithMatch(debugStub, 'API_GET_PAYMENTS_ERROR', err);
-
-      const dd = reqMock.app.dataDictionary;
-      expect(dd).to.be.an.object();
-      expect(dd.event_detail).to.be.an.object();
-      expect(dd.event_detail.request_authorization).to.equal({
-        deviceid: reqMock.headers.deviceid || '',
-        otpreferenceid: reqMock.headers.otpreferenceid || '',
-      });
-      expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
-    }
-  });
-
-  it('should throw InvalidParameter when startDate is not before endDate', async () => {
-    reqMock.query.accountNumber = 'ACC-12345';
-    reqMock.query.startDate = '2025-01-31';
-    reqMock.query.endDate = '2025-01-31';
-
-    const debugStub = Sinon.stub(logger, 'debug');
-
-    try {
-      await getPayments(reqMock);
-      throw new Error('Expected to throw but succeeded');
-    } catch (err) {
-      expect(err).to.exist();
-      expect(err.type).to.equal('InvalidParameter');
-      Sinon.assert.notCalled(
-        reqMock.paymentsRetrievalService.getDetailsByMsisdn
-      );
-      Sinon.assert.notCalled(reqMock.paymentsRetrievalService.retrievePayments);
-      Sinon.assert.calledWithMatch(debugStub, 'API_GET_PAYMENTS_ERROR', err);
-
-      const dd = reqMock.app.dataDictionary;
-      expect(dd).to.be.an.object();
-      expect(dd.event_detail).to.be.an.object();
-      expect(dd.event_detail.request_authorization).to.equal({
-        deviceid: reqMock.headers.deviceid || '',
-        otpreferenceid: reqMock.headers.otpreferenceid || '',
-      });
-      expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
-    }
-  });
-
-  it('should set default empty request_authorization when headers are missing', async () => {
-    const payments = [{ id: 'pmt-headers' }];
-    reqMock.headers = { 'x-request-id': 'req-1' };
-    reqMock.query.accountNumber = 'ACC-HEADERS';
-    reqMock.query.mobileNumber = '';
-
-    reqMock.paymentsRetrievalService.retrievePayments.resolves(payments);
-
-    const result = await getPayments(reqMock);
-
-    expect(result).to.equal(payments);
-    const dd = reqMock.app.dataDictionary;
-    expect(dd.transaction_status).to.equal(
-      constants.TRANSACTION_STATUS.SUCCESS
-    );
-    expect(dd.event_detail.request_authorization).to.equal({
-      deviceid: '',
-      otpreferenceid: '',
-    });
-    expect(dd.event_detail.request_parameters).to.equal(reqMock.query);
-  });
-
-  it('should set request_parameters to empty string when query is empty string', async () => {
-    const payments = [{ id: 'pmt-empty-str' }];
-    reqMock.query = '';
-    reqMock.headers = {
-      'x-request-id': 'req-1',
-      deviceid: 'dev-1',
-      otpreferenceid: 'otp-1',
-    };
-
-    reqMock.paymentsRetrievalService.getDetailsByMsisdn.resolves(
-      'ACC-EMPTY-STR'
-    );
-    reqMock.paymentsRetrievalService.retrievePayments.resolves(payments);
-
-    const result = await getPayments(reqMock);
-
-    expect(result).to.equal(payments);
-    const dd = reqMock.app.dataDictionary;
-    expect(dd.transaction_status).to.equal(
-      constants.TRANSACTION_STATUS.SUCCESS
-    );
-    expect(dd.event_detail.request_authorization).to.equal({
-      deviceid: 'dev-1',
-      otpreferenceid: 'otp-1',
-    });
-    expect(dd.event_detail.request_parameters).to.equal('');
   });
 });

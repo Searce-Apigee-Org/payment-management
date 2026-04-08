@@ -13,7 +13,7 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
   let getAccessTokenStub,
     fetchAccessTokenByChannelStub,
     updateAccessTokenByChannelStub,
-    getPaymentServiceCredentialsStub;
+    getAuthorizationByChannelStub;
 
   beforeEach(() => {
     reqMock = {
@@ -34,8 +34,8 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
       },
       tokenStoreClient: {},
       secretManager: {
-        paymentServiceRepository: {
-          getPaymentServiceCredentials: Sinon.stub(),
+        authorizationRepository: {
+          getAuthorizationByChannel: Sinon.stub(),
         },
       },
       secretManagerClient: {},
@@ -46,9 +46,8 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
       reqMock.tokenStore.paymentRepository.fetchAccessTokenByChannel;
     updateAccessTokenByChannelStub =
       reqMock.tokenStore.paymentRepository.updateAccessTokenByChannel;
-    getPaymentServiceCredentialsStub =
-      reqMock.secretManager.paymentServiceRepository
-        .getPaymentServiceCredentials;
+    getAuthorizationByChannelStub =
+      reqMock.secretManager.authorizationRepository.getAuthorizationByChannel;
   });
 
   afterEach(() => {
@@ -56,7 +55,7 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
   });
 
   it('should throw error when authorization credentials are invalid', async () => {
-    getPaymentServiceCredentialsStub.rejects(new Error('Bad credentials'));
+    getAuthorizationByChannelStub.rejects(new Error('Bad credentials'));
 
     try {
       await getAuthorizationToken(reqMock);
@@ -68,7 +67,7 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
 
   it('should throw if getAccessToken returns no results', async () => {
     getAccessTokenStub.resolves({});
-    getPaymentServiceCredentialsStub.resolves('client:secret');
+    getAuthorizationByChannelStub.resolves('client:secret');
 
     const token = await getAuthorizationToken(reqMock);
 
@@ -100,7 +99,7 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
     });
     fetchAccessTokenByChannelStub.resolves(null);
     updateAccessTokenByChannelStub.resolves();
-    getPaymentServiceCredentialsStub.resolves('client:secret');
+    getAuthorizationByChannelStub.resolves('client:secret');
 
     const token = await getAuthorizationToken(reqMock);
 
@@ -120,7 +119,7 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
       accessTokenExpiresAt: nowInSeconds - 10,
     });
     updateAccessTokenByChannelStub.resolves();
-    getPaymentServiceCredentialsStub.resolves('client:secret');
+    getAuthorizationByChannelStub.resolves('client:secret');
 
     const token = await getAuthorizationToken(reqMock);
 
@@ -139,7 +138,7 @@ describe('Service :: EsimFetchAuthorizationToken :: getAuthorizationToken', () =
     updateAccessTokenByChannelStub.callsFake(async () => {
       updated = true;
     });
-    getPaymentServiceCredentialsStub.resolves('client:secret');
+    getAuthorizationByChannelStub.resolves('client:secret');
 
     const token = await getAuthorizationToken(reqMock);
 

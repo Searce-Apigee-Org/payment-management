@@ -288,6 +288,101 @@ paths:
           schema:
             $ref: '#/definitions/InternalServerError'
           description: Internal Server Error
+  /v1/paymentManagement/topUp/{customerId}:
+    post:
+      summary: To allow users to buy retailer/consumer load.
+      operationId: postV1PaymentmanagementTopupCustomerid
+      parameters:
+        - type: string
+          name: deviceid
+          in: header
+          required: false
+        - type: string
+          pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
+          name: customerId
+          in: path
+          required: true
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/BuyLoadPayloadModel'
+      tags:
+        - v1
+      responses:
+        '201':
+          schema:
+            $ref: '#/definitions/BuyLoadResponse'
+          description: Created
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
+  /v2/paymentManagement/payments/websessions:
+    post:
+      summary: >-
+        An API that requests payment session token from GPayO T2 and sends the
+        session token as response.
+      operationId: postV2PaymentmanagementPaymentsWebsessions
+      parameters:
+        - type: string
+          name: authorization
+          in: header
+          required: true
+        - type: string
+          name: appChannel
+          in: header
+          required: false
+        - type: string
+          name: user-token
+          in: header
+          required: true
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/CreateWebPaymentSessionRequestPayload'
+      tags:
+        - v2
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/CreateWebPaymentSessionResponse'
+          description: Successful
+        '400':
+          schema:
+            $ref: '#/definitions/BadRequestError'
+          description: Bad Request
+        '401':
+          schema:
+            $ref: '#/definitions/UnauthorizedError'
+          description: Unauthorized
+        '403':
+          schema:
+            $ref: '#/definitions/ForbiddenError'
+          description: Forbidden
+        '404':
+          schema:
+            $ref: '#/definitions/NotFoundError'
+          description: Not Found
+        '500':
+          schema:
+            $ref: '#/definitions/InternalServerError'
+          description: Internal Server Error
   /v1/paymentManagement/esim/payments/session:
     post:
       summary: >-
@@ -356,7 +451,7 @@ paths:
         - in: body
           name: body
           schema:
-            $ref: '#/definitions/Model5'
+            $ref: '#/definitions/Model10'
       tags:
         - v1
       responses:
@@ -996,6 +1091,232 @@ definitions:
       - countryCode
       - paymentInformation
       - settlementInformation
+  BuyLoadPayloadModel:
+    type: object
+    properties:
+      keyword:
+        type: string
+      wallet:
+        type: string
+      amount:
+        type: number
+        minimum: 1
+      tokenPaymentId:
+        type: string
+      agentName:
+        type: string
+      externalTransactionId:
+        type: string
+    required:
+      - amount
+      - tokenPaymentId
+  BuyLoadResponse:
+    type: object
+  customerInfo:
+    type: object
+    properties:
+      customerId:
+        type: string
+        x-convert:
+          trim: true
+      customerName:
+        type: string
+        x-convert:
+          trim: true
+  Model3:
+    type: string
+    enum:
+      - G
+      - 'N'
+      - O
+      - S
+  requestType:
+    type: string
+    enum:
+      - BBPrepaidPromo
+      - PayBills
+      - BuyLoad
+      - BuyPromo
+      - ChangeSim
+      - BuyRoaming
+  wallet:
+    type: string
+    enum:
+      - A
+      - L
+  oonaSkus:
+    type: array
+    items:
+      type: string
+      pattern: ^(oonaCompTravel|OonaCompTravel)-\d+$
+  transactionProfile:
+    type: object
+    properties:
+      lastName:
+        type: string
+      firstName:
+        type: string
+      middleName:
+        type: string
+      email:
+        type: string
+        pattern: ^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$
+      dateOfBirth:
+        type: string
+        pattern: ^\d{4}-\d{2}-\d{2}$
+      gender:
+        $ref: '#/definitions/gender'
+      mobileNumber:
+        type: string
+        pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
+      startDate:
+        type: string
+        pattern: ^\d{4}-\d{2}-\d{2}$
+      endDate:
+        type: string
+        pattern: ^\d{4}-\d{2}-\d{2}$
+      brand:
+        type: string
+    required:
+      - lastName
+      - firstName
+      - email
+  Model4:
+    type: object
+    properties:
+      amount:
+        type: number
+        minimum: 0
+      keyword:
+        type: string
+      param:
+        type: string
+      serviceId:
+        type: string
+        pattern: ^\d+$
+      wallet:
+        $ref: '#/definitions/wallet'
+      agentName:
+        type: string
+      externalTransactionId:
+        type: string
+      transactionId:
+        type: string
+      oonaSkus:
+        $ref: '#/definitions/oonaSkus'
+      transactionProfile:
+        $ref: '#/definitions/transactionProfile'
+      activationDate:
+        type: string
+        pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$
+      targetDestination:
+        type: string
+  Model5:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/Model4'
+  Model6:
+    type: object
+    properties:
+      accountId:
+        type: string
+        pattern: ^[0-9]+$
+        x-convert:
+          trim: true
+      mobileNumber:
+        type: string
+        pattern: ^(\+?639|\+?638|9|09|639|632|8|08|638)[0-9]{9}$
+        x-convert:
+          trim: true
+      landlineNumber:
+        type: string
+      emailAddress:
+        type: string
+        pattern: ^[a-zA-Z0-9_!#$%&'*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$
+        x-convert:
+          trim: true
+      amount:
+        type: number
+      transactionType:
+        $ref: '#/definitions/Model3'
+      requestType:
+        $ref: '#/definitions/requestType'
+      createOrderExternal:
+        type: string
+      transactions:
+        $ref: '#/definitions/Model5'
+    required:
+      - transactionType
+      - createOrderExternal
+      - transactions
+  breakdown:
+    type: array
+    minItems: 1
+    items:
+      $ref: '#/definitions/Model6'
+  settlementInfo:
+    type: object
+    properties:
+      breakdown:
+        $ref: '#/definitions/breakdown'
+    required:
+      - breakdown
+  Model7:
+    type: string
+    enum:
+      - OTC_ECPAY
+      - CARD_INSTALLMENT
+      - CARD_STRAIGHT
+  allowedPaymentMethods:
+    type: array
+    items:
+      $ref: '#/definitions/Model7'
+  notificationUrls:
+    type: object
+    properties:
+      successUrl:
+        type: string
+        pattern: ^https:\/\/.+$
+      failureUrl:
+        type: string
+        pattern: ^https:\/\/.+$
+  CreateWebPaymentSessionRequestPayload:
+    type: object
+    properties:
+      customerInfo:
+        $ref: '#/definitions/customerInfo'
+      settlementInfo:
+        $ref: '#/definitions/settlementInfo'
+      allowedPaymentMethods:
+        $ref: '#/definitions/allowedPaymentMethods'
+      notificationUrls:
+        $ref: '#/definitions/notificationUrls'
+    required:
+      - settlementInfo
+  CreateWebPaymentSessionResultModel:
+    type: object
+    properties:
+      tokenPaymentId:
+        type: string
+      webSessionUrl:
+        type: string
+      webSessionToken:
+        type: string
+      ttl:
+        type: string
+    required:
+      - tokenPaymentId
+      - webSessionUrl
+      - webSessionToken
+      - ttl
+  CreateWebPaymentSessionResponse:
+    type: object
+    properties:
+      result:
+        $ref: '#/definitions/CreateWebPaymentSessionResultModel'
+    required:
+      - result
   PaymentyTypeModel:
     type: string
     default: XENDIT
@@ -1221,7 +1542,7 @@ definitions:
         $ref: '#/definitions/CreateEsimPaymentSessionResultModel'
     required:
       - result
-  Model3:
+  Model8:
     type: object
     properties:
       accountNumber:
@@ -1241,7 +1562,7 @@ definitions:
     type: array
     minItems: 1
     items:
-      $ref: '#/definitions/Model3'
+      $ref: '#/definitions/Model8'
   paymentMethods:
     type: array
     items:
@@ -1297,7 +1618,7 @@ definitions:
         $ref: '#/definitions/actions'
     required:
       - paymentId
-  Model4:
+  Model9:
     type: object
     properties:
       name:
@@ -1308,11 +1629,11 @@ definitions:
     required:
       - name
       - payload
-  Model5:
+  Model10:
     type: object
     properties:
       notification:
-        $ref: '#/definitions/Model4'
+        $ref: '#/definitions/Model9'
     required:
       - notification
   PaymentSessionCallbackResultModel:

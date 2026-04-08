@@ -65,7 +65,7 @@ const TOKEN_ENTITY = {
 };
 
 const SECRET_ENTITY = {
-  PAYMENT_SERIVCE_CREDENTIAL: 'authorization-credentials',
+  PAYMENT_SERVICE_CREDENTIAL: 'authorization-credentials',
   VOUCHER: 'vouchers',
   PROCESSINGFEE_GCASH: 'superapp-ecpay-gcash-processingfee',
   DNO_CONFIG: 'dno-config',
@@ -78,6 +78,10 @@ const SECRET_ENTITY = {
   MERCHANT_ID: 'merchantId',
   PAYMENT_REQUEST_TYPES: 'requestTypes',
   CHANGE_SIM: 'changeSim',
+  AMAX: 'amax',
+  REFUND_AUTH_TOKEN: 'refund-auth-token',
+  GPAYO: 'gpayo-credentials',
+  REFUND: 'refund',
 };
 
 const PAYMENT_SESSIONS = {
@@ -101,6 +105,7 @@ const PAYMENT_SESSION_STATUS = {
 
 const API_VERSIONS = {
   V1: 'v1',
+  V2: 'v2',
 };
 
 const API_NUMBERS = {
@@ -144,6 +149,7 @@ const PAYMENT_STATUS = {
 
 const DOWNSTREAM = {
   RUDY: 'rudy',
+  AMAX: 'amax',
 };
 
 const ESIM_CONSTANTS = {
@@ -168,6 +174,7 @@ const EPISODES = {
 const TRANSACTION_STATUS = {
   SUCCESS: 'Success',
   FAILED: 'failed',
+  FAILURE: 'Failure',
 };
 
 const PAYMENT_TYPE_KEYS = {
@@ -189,6 +196,8 @@ const PAYMENT_TYPE_KEYS = {
   SUB_MERCHANT_ID: 'subMerchantId',
   PAYMENT_TYPE: 'paymentType',
   TYPE: 'type',
+  REQUEST_TYPES: 'requestTypes',
+  REFUND: 'refund',
 };
 
 const FORBIDDEN_KEYS = {
@@ -249,6 +258,8 @@ const PLATFORMS = {
 const CHANNEL = {
   GLA: 'GLA',
   CPT: 'CPT',
+  SUPERAPP: 'SuperApp',
+  GLOBE_ONLINE: 'GlobeOnline',
 };
 
 const CURRENCY = {
@@ -272,6 +283,29 @@ const RUDY_PATH = {
   PAYMENTS_V1_CREDENTIALS: `platform-rudy-payments-v1-credentials`,
 };
 
+const WEBPAYMENT_CONSTANTS = {
+  DATE_FORMAT: `YYYY-MM-DDTHH:mm:ss.SSS`,
+  DEFAULT_SETTLEMENT_STATUS: 'PROCESSING',
+  DEFAULT_ENTITY_STATUS: 'PROCESSING',
+  BBPREPAIDPROMO_DEFAULT_PAYMENT_TYPE: 'ECPay',
+  DEFAULT_PAYMENT_TYPE: 'CARD',
+  BBPREPAIDPROMO_REQ_TYPE_VAL: 'BBPrepaidPromo',
+  DEFAULT_PROVISION_STATUS: 'PROCESSING',
+  TIME_OFFSET: '+08:00',
+  ACCESS_TOKEN_BUFFER_SECONDS: 300,
+  ALLOWED_OONA_SKUS: ['oonacomptravel', 'oonasmartdelay'],
+  DEFAULT_OONA_SSM_KEY: 'OONA_COMP_TRAVEL',
+  POSTPAID_OONA_SSM_KEY: 'OONA_COMP_TRAVEL_POSTPAID',
+  BUDGET_PROTECT_SSM_API_NUMBER: '00010',
+  PERCENTAGE_RATE_TYPE: 'percentage',
+  DEFAULT_PAYMENT_SESSION_VERSION: 'v2',
+  GPAYO_CREDENTIALS_KEY: 'gpayo-credentials',
+  OONA_CONFIG_KEY: 'oona-pricing-config',
+  BUDGET_PROTECT_CONFIG_KEY: 'singlife-pricing-config',
+  OONA_COMP_TRAVEL_KEY: 'oonacomptravel',
+  OONA_SMART_DELAY_KEY: 'oonasmartdelay',
+};
+
 const SETTLEMENT_STATUS = {
   AUTHORISED: {
     CARD: 'CARD_AUTHORISED',
@@ -292,6 +326,7 @@ const AUTHORISED = 'AUTHORISED';
 const PROCESSING = 'PROCESSING';
 const FAILED = 'FAILED';
 const CANCELLED = 'CANCELLED';
+
 const CS_PAYMENTS = {
   CREDENTIALS_PATH: `processCSPayment-credentials`,
 };
@@ -299,15 +334,70 @@ const CS_PAYMENTS = {
 const STATUS = {
   FAILED: 'FAILED',
   SUCCESS: 'SUCCESS',
+  REFUND_FAILED: 'REFUND_FAILED',
+  PENDING: 'PENDING',
 };
 
 const HTTP_STATUS = {
   NO_CONTENT: 204,
   UNAUTHORIZED: 401,
+  SUCCESS: 200,
+  INTERNAL_SERVER_ERROR: 500,
 };
 
+const CHANNEL_NAME = {
+  SUPERAPP: 'GLA',
+  GLOBE_ONLINE: 'GLE',
+  CXS: 'CXS',
+  CPT: 'CPT',
+};
+
+const PAYMENT_METHOD_SUFFIX = {
+  CCDC: '_CCDC',
+};
+
+const FORMAT = {
+  TIMESTAMP: 'YYYY-MM-DD[T]HH:mm:ss.SSS',
+};
+
+const QUEST_TYPE = {
+  BUYLOAD: 'BuyLoad',
+};
+
+const QUEST_INDICATOR = {
+  N: 'N',
+};
+
+const REQUEST_TYPE = {
+  A: 'A',
+};
+
+const PRODUCT_TYPE = {
+  TOP_UP: '1',
+};
+
+const STATUS_CODE = {
+  SUCCESS: '0',
+};
+
+const ACCESS_TOKEN = {
+  BUFFER: 60,
+};
+
+const PAYO = {
+  REASONS: 'CANCELLATION',
+};
+
+const CONFIG = {
+  SHARED: 'shared',
+};
+
+const APIS = 'apis';
+
 export {
+  ACCESS_TOKEN,
   ACTIONS,
+  APIS,
   API_NUMBERS,
   API_VERSIONS,
   AUTHORISED,
@@ -315,6 +405,8 @@ export {
   CANCELLED,
   CHANNEL,
   CHANNELS,
+  CHANNEL_NAME,
+  CONFIG,
   CS_PAYMENTS,
   CURRENCY,
   DOWNSTREAM,
@@ -325,10 +417,12 @@ export {
   ESIM_REQUEST_TYPES,
   FAILED,
   FORBIDDEN_KEYS,
+  FORMAT,
   HTTP_STATUS,
   HTTP_STATUS_CODES,
   PAYMENT_BANKS,
   PAYMENT_ENTITY_TYPES,
+  PAYMENT_METHOD_SUFFIX,
   PAYMENT_MODES,
   PAYMENT_NOTIFICATION_NAMES,
   PAYMENT_NOTIFICATION_STATUS,
@@ -338,19 +432,26 @@ export {
   PAYMENT_STATUS,
   PAYMENT_TYPES,
   PAYMENT_TYPE_KEYS,
+  PAYO,
   PLATFORMS,
   PROCESSING,
+  PRODUCT_TYPE,
+  QUEST_INDICATOR,
+  QUEST_TYPE,
   REPO,
+  REQUEST_TYPE,
   RUDY_METHOD,
   RUDY_PATH,
   SECRET_ENTITY,
   SERVICE,
   SETTLEMENT_STATUS,
   STATUS,
+  STATUS_CODE,
   SUCCESS,
   TOKEN_ENTITY,
   TRANSACTION_STATUS,
   VERSION,
+  WEBPAYMENT_CONSTANTS,
   XENDIT_PAYMENT_METHODS,
   XENDIT_PAYMENT_OPTIONS,
 };

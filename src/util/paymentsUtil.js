@@ -22,6 +22,12 @@ const checkValidChannel = (channel, paymentType, optionalCondition) => {
     return false;
   }
 
+  logger.info(
+    'Checking valid channel for payment type XENDIT',
+    channel,
+    optionalCondition
+  );
+
   const {
     CHANNELS: { NG1, GO, GOMO, GOR, DNO, CXS }, //remove cxs after testing
     PAYMENT_REQUEST_TYPES: { NON_BILL },
@@ -154,7 +160,7 @@ const buildPaymentEntity = async (
     tokenPaymentId,
     channelId,
     paymentType: cxsRequest.paymentType,
-    createdDate: new Date().toISOString(),
+    createDate: new Date().toISOString(),
     userToken: headers['user-token'],
     deviceId: headers['DeviceId'],
     settlementDetails: [],
@@ -301,6 +307,14 @@ const filterPayments = (payments, startDate, endDate) => {
   );
 };
 
+const identifySourceChannel = (tokenPaymentId) => {
+  const source = _.find(
+    Object.entries(constants.promos.TRANSACTION_PREFIX_CHANNEL_EQV),
+    ([key]) => tokenPaymentId.startsWith(key)
+  );
+  return source?.[0];
+};
+
 export {
   buildPaymentEntity,
   calculateVoucherAmount,
@@ -310,5 +324,6 @@ export {
   formatAmount,
   formatPayments,
   getRequestClientId,
+  identifySourceChannel,
   validateTokenSDK,
 };

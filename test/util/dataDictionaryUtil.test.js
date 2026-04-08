@@ -5,8 +5,10 @@ import Sinon from 'sinon';
 import { msisdnFormatter } from '@globetel/cxs-core/core/utils/string/index.js';
 import * as constants from '../../src/util/constants.js';
 import {
+  finalizeBuyLoadDataDictionary,
   getPaymentsDataDictionary,
   getPaymentsSuccessDataDictionary,
+  initializeBuyLoadDataDictionary,
 } from '../../src/util/dataDictionaryUtil.js';
 
 const lab = Lab.script();
@@ -107,5 +109,175 @@ describe('Util :: dataDictionaryUtil :: getPaymentsSuccessDataDictionary', () =>
     await getPaymentsSuccessDataDictionary(req, eventDetail);
 
     expect(req.app.dataDictionary).to.equal(expectedData);
+  });
+});
+
+describe('Util :: dataDictionaryUtil :: initializeBuyLoadDataDictionary', () => {
+  beforeEach(() => {
+    Sinon.restore();
+  });
+
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should set buyload base dictionary without optional keyword/wallet when undefined', async () => {
+    const req = { app: {} };
+
+    initializeBuyLoadDataDictionary(
+      req,
+      constants.CHANNEL.SUPERAPP,
+      '639171234567',
+      'SUPERAPP123',
+      '50',
+      undefined,
+      undefined
+    );
+
+    expect(req.app.dataDictionary).to.equal({
+      channel: constants.CHANNEL.SUPERAPP,
+      event_detail: {
+        token_payment_id: 'SUPERAPP123',
+        request_authorization: {},
+        request_parameters: {
+          customer_id: '639171234567',
+          token_payment_id: 'SUPERAPP123',
+          amount: '50',
+        },
+      },
+    });
+  });
+
+  it('should include keyword/wallet even when null (since only undefined is excluded)', async () => {
+    const req = { app: {} };
+
+    initializeBuyLoadDataDictionary(
+      req,
+      constants.CHANNEL.GLOBE_ONLINE,
+      '09171234567',
+      'GO123',
+      100,
+      null,
+      null
+    );
+
+    expect(req.app.dataDictionary).to.equal({
+      channel: constants.CHANNEL.GLOBE_ONLINE,
+      event_detail: {
+        token_payment_id: 'GO123',
+        request_authorization: {},
+        request_parameters: {
+          customer_id: '09171234567',
+          token_payment_id: 'GO123',
+          amount: 100,
+          keyword: null,
+          wallet: null,
+        },
+      },
+    });
+  });
+});
+
+describe('Util :: dataDictionaryUtil :: finalizeBuyLoadDataDictionary', () => {
+  beforeEach(() => {
+    Sinon.restore();
+  });
+
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should build the final buyload data dictionary using payment + buyload mongo records', async () => {
+    const paymentEntity = {
+      tokenPaymentId: 'TPID-1',
+      // keep these empty/invalid so buyLoadUtil decoding stays deterministic in unit tests
+      userToken: '',
+      deviceId: '',
+      settlementDetails: [
+        {
+          provisionedAmount: 150,
+          transactions: [{ transactionId: 'TXN-1' }],
+        },
+      ],
+    };
+
+    const buyLoadEntity = { transactionId: 'TXN-1', foo: 'bar' };
+
+    const req = {
+      app: {},
+      mongo: {
+        paymentRepository: {
+          findByPaymentId: Sinon.stub().resolves(paymentEntity),
+        },
+        buyLoadTransactionsRepository: {
+          findByTransactionId: Sinon.stub().resolves(buyLoadEntity),
+        },
+      },
+    };
+
+    await finalizeBuyLoadDataDictionary(req, 'TPID-1');
+
+    // NOTE: finalizeBuyLoadDataDictionary mutates paymentEntity.settlementDetails to a sanitized object
+    expect(req.app.dataDictionary).to.equal({
+      user_token: '',
+      channel_login_id: '',
+      unique_session_identifier: '',
+      platform: constants.PLATFORMS.APP,
+      event_detail: {
+        payment_session_information: {
+          tokenPaymentId: 'TPID-1',
+          userToken: '',
+          deviceId: '',
+          settlementDetails: {
+            transactions: [{ transactionId: 'TXN-1' }],
+          },
+        },
+        mongo_db_records: {
+          payment_entity: {
+            tokenPaymentId: 'TPID-1',
+            userToken: '',
+            deviceId: '',
+            settlementDetails: {
+              transactions: [{ transactionId: 'TXN-1' }],
+            },
+          },
+          buyload_entity: { transactionId: 'TXN-1', foo: 'bar' },
+        },
+        result: { transactionId: 'TXN-1', foo: 'bar', provisioned_amount: 150 },
+      },
+    });
+  });
+
+  it('should default buyload_entity/result to empty object when no transactionId exists on the payment', async () => {
+    const paymentEntity = {
+      tokenPaymentId: 'TPID-2',
+      userToken: '',
+      deviceId: '',
+      settlementDetails: [{ provisionedAmount: null, transactions: [{}] }],
+    };
+
+    const findByTransactionId = Sinon.stub().resolves({ transactionId: 'X' });
+
+    const req = {
+      app: {},
+      mongo: {
+        paymentRepository: {
+          findByPaymentId: Sinon.stub().resolves(paymentEntity),
+        },
+        buyLoadTransactionsRepository: {
+          findByTransactionId,
+        },
+      },
+    };
+
+    await finalizeBuyLoadDataDictionary(req, 'TPID-2');
+
+    expect(findByTransactionId.called).to.be.false();
+    expect(req.app.dataDictionary.event_detail.result).to.equal({
+      provisioned_amount: '',
+    });
+    expect(
+      req.app.dataDictionary.event_detail.mongo_db_records.buyload_entity
+    ).to.equal({});
   });
 });

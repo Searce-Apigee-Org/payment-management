@@ -1,5 +1,3 @@
-//TODO - Fix
-
 const getRedisParams = (clientId, secretEntity) => {
   const params = { secretEntity, clientId };
 

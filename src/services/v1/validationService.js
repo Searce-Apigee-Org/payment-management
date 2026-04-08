@@ -325,8 +325,7 @@ const validateTransactions = async (req, target) => {
     createOrderExternals.forEach((order) => {
       const { accountId, targetType, entityIds } = order;
 
-      // eslint-disable-next-line eqeqeq
-      if (!accountId || targetType == null || !entityIds?.length) {
+      if (!accountId || targetType === null || !entityIds?.length) {
         throw {
           type: 'InvalidParameter',
           displayMessage:
@@ -337,8 +336,7 @@ const validateTransactions = async (req, target) => {
       entityIds.forEach((entityId) => {
         const { id, type } = entityId;
 
-        // eslint-disable-next-line eqeqeq
-        if (id == null || type == null) {
+        if (id === null || type === null) {
           throw {
             type: 'InvalidParameter',
             displayMessage:
@@ -383,7 +381,6 @@ const validateTransactions = async (req, target) => {
     transactions.forEach((t) => {
       if (!t.transactionId) {
         throw {
-          //TODO - map to endgame error
           type: 'MissingParameterValidateException',
           displayMessage:
             'The request parameter is missing a mandatory parameter.',
@@ -428,9 +425,8 @@ const validateSecurityLimits = async (settlementInformation, req) => {
     req
   );
 
-  //TODO - constant
   let sharedConfig = await mongo.channelConfigRepository.findOneById(
-    'shared',
+    constants.CONFIG.SHARED,
     req
   );
 
@@ -616,7 +612,6 @@ const validateECPaySettlementAmount = async (settlementInformation, req) => {
     Number(totalTransAmountToPay.toFixed(2)) !==
     Number(settlementInformation.amount.toFixed(2))
   ) {
-    //TODO - add new type in core-lib
     throw {
       type: 'InvalidRequestValidateException',
     };
@@ -719,8 +714,6 @@ const validateGCSBucketValues = async (settlementInformation, req) => {
   const match = res.find((p) => (p.price ?? '') === formattedPrice);
 
   if (!match) {
-    //TODO - match with legacy
-
     throw {
       type: 'CustomBadRequestError',
       details: 'ServiceId and amount are not allowed.',

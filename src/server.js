@@ -31,6 +31,7 @@ import {
 } from './plugins/index.js';
 import { providers } from './providers/index.js';
 import {
+  amax,
   cxs,
   dno,
   gcs,
@@ -40,26 +41,31 @@ import {
   oneApi,
   payment,
   payo,
+  payoT2,
   rudy,
   secretManager,
   tokenStore,
 } from './repositories/index.js';
-import { v1Routes } from './routes/index.js';
+import { v1Routes, v2Routes } from './routes/index.js';
 import {
   accountInfoService,
   dnoService,
   enrolledAccountsService,
   oonaService,
   priceValidationService,
+  singlifeService,
   tenantTokenService,
 } from './services/common/index.js';
-import { helpers, v1Services } from './services/index.js';
+import { helpers, v1Services, v2Services } from './services/index.js';
 import {
+  esimFetchAuthorizationToken,
   paymentAuthService,
+  paymentRefundHelper,
   paymentRequestService,
   processCallbackService,
   validationService,
 } from './services/v1/index.js';
+import { payoT2AuthService } from './services/v2/index.js';
 import { swaggerUtil } from './util/index.js';
 
 const createServer = async (isInPurgatory = false) => {
@@ -94,8 +100,10 @@ const createServer = async (isInPurgatory = false) => {
         validationService,
         http,
         paymentAuthService,
+        payoT2AuthService,
         tokenStore,
         payo,
+        payoT2,
         mongoModels,
         paymentTypeModels,
         mongo,
@@ -106,6 +114,7 @@ const createServer = async (isInPurgatory = false) => {
         dno,
         enrolledAccountsService,
         oonaService,
+        singlifeService,
         helpers,
         priceValidationService,
         rudy,
@@ -117,6 +126,8 @@ const createServer = async (isInPurgatory = false) => {
         esimFetchAuthorizationToken: v1Services.esimFetchAuthorizationToken,
         questIndicatorService: v1Services.questIndicatorService,
         paymentLoyaltyService: v1Services.paymentLoyaltyService,
+        t2PaymentServiceAuth: v2Services.t2PaymentServiceAuth,
+        createPaymentSessionService: v2Services.createWebPaymentSessionService,
         downstreamDataProvider: providers.downstreamDataProvider,
         hip,
         accountInfoService,
@@ -129,6 +140,10 @@ const createServer = async (isInPurgatory = false) => {
         csPaymentsSettlementService: v1Services.csPaymentsSettlementService,
         gorTokenService: v1Services.gorTokenService,
         paymentRequestService,
+        amax,
+        esimFetchAuthorizationToken,
+        paymentRefundHelper,
+        paymentRefundHelper: v1Services.paymentRefundHelper,
       },
     },
     {
@@ -138,6 +153,8 @@ const createServer = async (isInPurgatory = false) => {
     v1Routes.esimRoutes,
     v1Routes.receiptsRoutes,
     v1Routes.csPaymentsRoutes,
+    v1Routes.buyLoadRoutes,
+    v2Routes.paymentsRoutes,
   ]);
 
   if (!isInPurgatory) {
@@ -156,6 +173,10 @@ const createServer = async (isInPurgatory = false) => {
       {
         plugin: dynamoDbPlugin,
         options: { dynamoDb },
+      },
+      {
+        plugin: mongoDbPlugin,
+        options: { mongoose, mongo: mongoStore },
       },
     ]);
   }

@@ -107,7 +107,7 @@ describe('Service :: getPaymentSessionService :: getPaymentSession', () => {
 
     Sinon.assert.calledOnce(checkQuestIndicatorStub);
     Sinon.assert.calledOnce(handleLoyaltyPointsStub);
-    expect(res).to.equal({ result: { success: true } });
+    expect(res).to.equal({ success: true });
   });
 
   it('should call handleLoyaltyPoints with clientName when available', async () => {
