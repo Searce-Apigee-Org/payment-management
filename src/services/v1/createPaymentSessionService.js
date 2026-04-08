@@ -38,6 +38,7 @@ const createPaymentSession = async (req) => {
     };
 
     req.app.cxsRequest = cxsRequest;
+    req.cxsRequest = cxsRequest;
 
     await validationService.validatePaymentInformation(req);
 
