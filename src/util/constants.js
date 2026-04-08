@@ -508,6 +508,14 @@ const HTTP_STATUS = {
   UNAUTHORIZED: 401,
 };
 
+const ACCESS_TOKEN = {
+  BUFFER: 60,
+};
+
+const PAYO = {
+  REASONS: 'CANCELLATION',
+};
+
 export {
   ACCESS_TOKEN,
   ACTIONS,
