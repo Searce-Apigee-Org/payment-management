@@ -107,13 +107,13 @@ describe('Util :: OonaUtil :: applyOonaCompTravelPricing', () => {
         oonacomptravel: { pricing: { net: 1500 } },
       },
     };
-    const amount = applyOonaCompTravelPricing({
+    applyOonaCompTravelPricing({
       miscellaneous,
       skuIdentifier: 'oonacomptravel',
       pricingData,
       oonaPromosKey: 'oona_promos_key',
     });
-    expect(amount).to.equal(1500);
+    expect(miscellaneous.oonaCompTravel).to.equal(1500);
   });
 
   it('should throw when pricing data missing', () => {
@@ -138,8 +138,8 @@ describe('Util :: OonaUtil :: applyOonaSmartDelayPricing', () => {
       },
       pricingData: { OONA_SMART_DELAY: { base: { net: 1000 } } },
     };
-    const amount = applyOonaSmartDelayPricing(params);
-    expect(amount).to.equal(1000);
+    applyOonaSmartDelayPricing(params);
+    expect(params.miscellaneous.oonaSmartDelay).to.equal(1000);
   });
 
   it('should calculate correctly for multiple members with additional pricing', () => {
@@ -150,8 +150,8 @@ describe('Util :: OonaUtil :: applyOonaSmartDelayPricing', () => {
         OONA_SMART_DELAY: { base: { net: 1000 }, additional: { net: 200 } },
       },
     };
-    const amount = applyOonaSmartDelayPricing(params);
-    expect(amount).to.equal(1400); // 1000 + (3-1)*200
+    applyOonaSmartDelayPricing(params);
+    expect(params.miscellaneous.oonaSmartDelay).to.equal(1400); // 1000 + (3-1)*200
   });
 
   it('should throw when pricingData missing or invalid', () => {

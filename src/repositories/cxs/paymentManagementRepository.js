@@ -74,44 +74,4 @@ const buyLoadAsync = async (req, payload) => {
   }
 };
 
-const executeRefund = async (req, refundRequest, authToken) => {
-  const {
-    host,
-    httpProtocol,
-    endpoints: { paymentRefund: requestPaymentRefundEndpoint },
-  } = config.get('cxs.paymentManagement');
-
-  const {
-    http,
-    payload: { tokenPaymentId },
-  } = req;
-
-  try {
-    const endpoint = requestPaymentRefundEndpoint.replace(
-      '{tokenPaymentId}',
-      encodeURIComponent(tokenPaymentId)
-    );
-
-    const url = `${httpProtocol}://${host}/${endpoint}`;
-
-    const options = {
-      headers: {
-        authorization: authToken,
-      },
-    };
-
-    const response = await http.post(url, refundRequest, options, false, false);
-
-    return response;
-  } catch (err) {
-    logger.debug('CXS_PAYMENT_EXECUTE_REFUND_ERROR', err);
-    throw err;
-  }
-};
-
-export {
-  buyLoadAsync,
-  executeRefund,
-  paymentStatusCallbackAsync,
-  processCSPaymentAsync,
-};
+export { buyLoadAsync, paymentStatusCallbackAsync, processCSPaymentAsync };

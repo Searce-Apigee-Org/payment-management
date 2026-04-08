@@ -1,7 +1,0 @@
-{
-  "transactionId": "{{randomValue length=10 type='ALPHANUMERIC'}}",
-  "status": "PROCESSING",
-  "wallet": "{{jsonPath request.body '$.wallet'}}",
-  "agentName": "{{jsonPath request.body '$.agentName'}}",
-  "timestamp": "{{now format=\"yyyy-MM-dd'T'HH:mm:ss'Z'\"}}"
-}

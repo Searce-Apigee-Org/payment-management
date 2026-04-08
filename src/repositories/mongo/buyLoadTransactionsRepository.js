@@ -61,45 +61,4 @@ const findByMobileDate = async (params) => {
   }
 };
 
-const findByTransactionId = async (transactionId) => {
-  try {
-    const buyLoadTransactions = await BuyLoadTransactionModel.findOne({
-      transactionId,
-    });
-
-    if (!buyLoadTransactions) {
-      throw {
-        type: 'ResourceNotFound',
-        details: 'Buy Load Transaction not found.',
-      };
-    }
-    return buyLoadTransactions;
-  } catch (err) {
-    logger.debug(
-      'MONGO_BUY_LOAD_TRANSACTION_FIND_BY_TRANSACTION_ID_ERROR',
-      err
-    );
-    throw err;
-  }
-};
-
-const save = async (entity, userUuid) => {
-  try {
-    await BuyLoadTransactionModel.updateOne(
-      { transactionId: entity.transactionId },
-      {
-        $set: {
-          ...entity,
-          ...(userUuid !== undefined ? { createdById: userUuid } : {}),
-        },
-      },
-      { upsert: true }
-    );
-    return { success: true };
-  } catch (err) {
-    logger.debug('MONGO_BUY_LOAD_TRANSACTION_SAVE_ERROR', err);
-    throw err;
-  }
-};
-
-export { findByMobileDate, findByMobileDateChannel, findByTransactionId, save };
+export { findByMobileDate, findByMobileDateChannel };

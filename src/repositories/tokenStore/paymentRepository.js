@@ -19,24 +19,6 @@ const fetchAccessTokenByChannel = async (
   }
 };
 
-const fetchGPayOAccessTokenByChannel = async (
-  req,
-  tokenStoreClient,
-  channelId,
-  secretEntity
-) => {
-  const config = tokenStoreUtil.getRedisParams(channelId, secretEntity);
-
-  try {
-    const token = await tokenStoreClient.get(req, config);
-
-    return token || null;
-  } catch (err) {
-    logger.debug('FETCH_ACCESS_TOKEN_ERROR', err);
-    throw err;
-  }
-};
-
 const updateAccessTokenByChannel = async (
   req,
   tokenStoreClient,
@@ -54,8 +36,4 @@ const updateAccessTokenByChannel = async (
   }
 };
 
-export {
-  fetchAccessTokenByChannel,
-  fetchGPayOAccessTokenByChannel,
-  updateAccessTokenByChannel,
-};
+export { fetchAccessTokenByChannel, updateAccessTokenByChannel };

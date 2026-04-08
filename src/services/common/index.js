@@ -3,7 +3,6 @@ import * as dnoService from './dnoService.js';
 import * as enrolledAccountsService from './enrolledAccountsService.js';
 import * as oonaService from './oonaService.js';
 import * as priceValidationService from './priceValidationService.js';
-import * as singlifeService from './singlifeService.js';
 import * as tenantTokenService from './tenantTokenService.js';
 
 export {
@@ -12,6 +11,5 @@ export {
   enrolledAccountsService,
   oonaService,
   priceValidationService,
-  singlifeService,
   tenantTokenService,
 };

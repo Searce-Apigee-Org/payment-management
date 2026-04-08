@@ -1,5 +1,4 @@
-# FROM globe.jfrog.io/hmd-docker-virtual/node:22-alpine
-FROM node:22-alpine
+FROM globe.jfrog.io/hmd-docker-virtual/node:22-alpine
 
 RUN addgroup -g 1729 appgroup \
     && adduser -u 1729 -G appgroup -s /bin/sh -D appuser
