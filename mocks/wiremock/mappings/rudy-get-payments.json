@@ -1,0 +1,26 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/CR507Service/PaymentHistoryServlet",
+    "queryParameters": {
+      "method": {
+        "equalTo": "getOrListByAccNoAndYear"
+      },
+      "accountId": {
+        "matches": ".*"
+      }
+    },
+    "headers": {
+      "Authorization": {
+        "matches": "Basic .*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "bodyFileName": "rudy-get-payments.json"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "v1/productOrdering/internal/addCampaignQuest"
+  },
+  "response": {
+    "status": 200,
+    "bodyFileName": "product-ordering-add-quest-response.json",
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

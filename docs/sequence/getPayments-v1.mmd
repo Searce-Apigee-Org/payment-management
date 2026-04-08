@@ -1,0 +1,62 @@
+sequenceDiagram
+    title GetPayments-V1
+
+    participant Consumer
+    participant CXS
+    participant Secret Manager
+    participant HIP
+    participant RUDY
+
+    Consumer->>CXS: GET /v1/paymentManagement/payments\n{ mobileNumber?, accountNumber?, startDate?, endDate? }
+
+    CXS->>CXS: Validate Request (schema)
+    CXS-->>Consumer: If not valid, return HTTP 4xx errors
+
+    CXS->>CXS: pre-handlers: setDefaultFields, otp.checkThenValidate, accounts.validate
+    CXS->>CXS: validateFields(startDate, endDate)
+
+    alt accountNumber is missing/blank
+        alt mobileNumber provided
+            CXS->>HIP: getDetailsByMSISDN(msisdn)
+            HIP-->>CXS: { AccountNo, SubscriberHeader }
+            alt SubscriberHeader == '' (invalid)
+                CXS-->>Consumer: Return error (InvalidAccount)
+            else valid
+                CXS->>CXS: accountIdentifier = AccountNo
+            end
+        else mobileNumber missing
+            CXS-->>Consumer: Return 400\n"Either accountNumber or mobileNumber must be provided"
+        end
+    else accountNumber provided
+        CXS->>CXS: accountIdentifier = accountNumber
+    end
+
+    CXS->>Secret Manager: getRudyAuthCredentials()
+    Secret Manager-->>CXS: authorization (Basic)
+
+    CXS->>RUDY: getPayments(accountIdentifier, authorization)
+    RUDY-->>CXS: payments[]
+
+    alt payments not found
+        CXS-->>Consumer: Return 404 Not Found
+    end
+
+    alt startDate and endDate provided
+        CXS->>CXS: filterPayments(payments, startDate, endDate)
+    end
+
+    CXS->>Secret Manager: getPaymentsCredentials()
+    Secret Manager-->>CXS: tokenSecret
+
+    CXS->>CXS: Build token payload\n{ receiptIds, user-uuid | mobileNumber }
+    CXS->>CXS: Sign token (expiresIn = 1h)
+
+    CXS->>CXS: formatPayments(payments, token)
+    CXS->>CXS: getPaymentsDataDictionary(req, payments)
+
+    CXS-->>Consumer: Return 200 { payments, token }
+
+    opt error occurs (e.g., HIP/RUDY/Secret Manager failure)
+        CXS->>CXS: log API_GET_PAYMENTS_ERROR
+        CXS-->>Consumer: Return HTTP 4xx/5xx error
+    end

@@ -1,13 +1,15 @@
-import config from '../../convict/config.js';
+import { config } from '../../convict/config.js';
 
 const redisPlugin = {
   name: 'redisPlugin',
   version: '1.0.0',
+
   register: async function (server, options) {
     try {
-      const { redis } = options;
       const redisHost = config.get('redis.host');
       const redisPort = config.get('redis.port');
+
+      const { redis } = options;
 
       const redisClientInstance = redis.getRedisClient(redisHost, redisPort);
 

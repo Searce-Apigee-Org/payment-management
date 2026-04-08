@@ -1,0 +1,24 @@
+[
+  {
+    "printable": "1",
+    "notified": "1",
+    "paymentAmount": 350.0,
+    "paymentDate": "20210101",
+    "accountId": "1001001234",
+    "msisdn": "09171234532",
+    "orId": "OR-210101",
+    "paymentSourceId": "SRC-POS",
+    "loadTime": "2021-01-01 10:00:00"
+  },
+  {
+    "printable": "0",
+    "notified": "1",
+    "paymentAmount": 150.5,
+    "paymentDate": "20210202",
+    "accountId": "1001001234",
+    "msisdn": "09171234532",
+    "orId": "OR-210202",
+    "paymentSourceId": "SRC-ONLINE",
+    "loadTime": "2021-02-02 14:30:00"
+  }
+]
