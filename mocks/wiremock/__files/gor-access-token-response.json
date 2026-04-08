@@ -1,0 +1,7 @@
+{
+  "statusCode": 200,
+  "tokenType": "Bearer",
+  "access_token": "{{randomValue type='ALPHANUMERIC' length=32}}",
+  "expires_in": 3600,
+  "retrieved_at": 1761099213
+}

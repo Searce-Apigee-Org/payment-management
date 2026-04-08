@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/apigw/sit3/cxs/ws/soap12/interim"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/soap+xml;charset=UTF-8"
+    },
+    "bodyFileName": "get-details-by-msisdn.xml"
+  }
+}

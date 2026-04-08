@@ -1,3 +1,11 @@
 #!/usr/bin/env sh
+
+set -e
+
+if git diff --cached --quiet --diff-filter=ACMR; then
+  exit 0
+fi
+
 npm run lint -- --fix && npm run format && npm run generate:swagger
-git diff --name-only --cached --diff-filter=d | xargs git add
+
+git diff --name-only --cached --diff-filter=d -z | xargs -0 git add

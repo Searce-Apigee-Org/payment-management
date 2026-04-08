@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/v1/paymentManagement/payments",
+    "queryParameters": {
+      "accountNumber": {
+        "matches": ".+"
+      }
+    },
+    "headers": {
+      "authorization": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "bodyFileName": "get-payments-v1.json"
+  }
+}

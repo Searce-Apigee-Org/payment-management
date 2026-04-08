@@ -1,0 +1,26 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/api/command",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.command[?(@.name == 'CreateRefundSession')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "timestamp": "2025-09-08T12:02:42.011Z",
+      "status": 200,
+      "message": "Command CreateRefundSession accepted",
+      "data": {
+        "paymentId": "GLA1757332895565988",
+        "message": "Refund processing"
+      }
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

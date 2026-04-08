@@ -26,20 +26,21 @@ describe('Plugin :: healthCheckPlugin', () => {
     expect(healthCheckPlugin.version).to.equal('1.0.0');
   });
 
-  it('should expose a GET /health route', async () => {
+  it('should expose a GET /v1/paymentManagement/health route', async () => {
     const routes = server.table();
     const healthRoute = routes.find(
-      (route) => route.path === '/health' && route.method === 'get'
+      (route) =>
+        route.path === '/v1/paymentManagement/health' && route.method === 'get'
     );
 
     expect(healthRoute).to.exist();
     expect(healthRoute.settings.handler).to.exist();
   });
 
-  it('should return { message: "OK" } when hitting /health', async () => {
+  it('should return { message: "OK" } when hitting /v1/paymentManagement/health', async () => {
     const response = await server.inject({
       method: 'GET',
-      url: '/health',
+      url: '/v1/paymentManagement/health',
     });
 
     expect(response.statusCode).to.equal(200);
