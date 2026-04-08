@@ -19,6 +19,15 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
     serviceHelpers,
     accountInfoService,
   } = req;
+
+  // Defensive check for cxsRequest
+  if (!cxsRequest || typeof cxsRequest !== 'object') {
+    throw {
+      type: 'InvalidRequest',
+      message: 'Missing or invalid cxsRequest in request object.',
+    };
+  }
+
   let paymentSessionType;
   let gcashPaymentInfo;
   let paymentInfo;
@@ -288,6 +297,14 @@ const preProcessPaymentInfo = async (req) => {
     paymentTypeModels,
     paymentRequestService,
   } = req;
+
+  // Defensive check for cxsRequest
+  if (!cxsRequest || typeof cxsRequest !== 'object') {
+    throw {
+      type: 'InvalidRequest',
+      message: 'Missing or invalid cxsRequest in request.app object.',
+    };
+  }
 
   const { settlementInformation, paymentInformation, paymentType } = cxsRequest;
   req.app.additionalParams ??= {};

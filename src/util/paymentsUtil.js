@@ -23,16 +23,16 @@ const checkValidChannel = (channel, paymentType, optionalCondition) => {
   }
 
   const {
-    CHANNELS: { NG1, GO, GOMO, GOR, DNO },
+    CHANNELS: { NG1, GO, GOMO, GOR, DNO, CXS }, //remove cxs after testing
     PAYMENT_REQUEST_TYPES: { NON_BILL },
   } = constants;
 
-  let validChannels = [NG1, GO, GOMO, GOR];
+  let validChannels = [NG1, GO, GOMO, GOR, CXS]; //remove cxs after testing
 
   if (optionalCondition?.toLowerCase() === NON_BILL.toLowerCase()) {
-    validChannels = [GO, GOMO, GOR, DNO];
+    validChannels = [GO, GOMO, GOR, DNO, CXS]; //remove cxs after testing
   } else if (optionalCondition === 'SAME_AS_GO') {
-    validChannels = [GO, GOR];
+    validChannels = [GO, GOR, CXS]; //remove cxs after testing
   }
 
   return validChannels.some((c) => c.toLowerCase() === channel?.toLowerCase());
