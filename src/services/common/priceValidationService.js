@@ -1,7 +1,6 @@
 import msisdnFormatter from '@globetel/cxs-core/core/utils/string/msisdnFormatter.js';
 import { constants, paymentsUtil, validationUtil } from '../../util/index.js';
 
-//TODO - FLOW CHECK (location lambda doesnt exist in legacy)
 const validateServiceIdPrice = async (
   settlementInformation,
   req,
@@ -28,15 +27,12 @@ const validateServiceIdPrice = async (
         );
 
         if (!match) {
-          //TODO - match with legacy
-
           throw {
             type: 'CustomBadRequestError',
             details: 'ServiceId and amount are not allowed.',
           };
         }
 
-        //TODO - unconfirmed flow
         if (!match.mm || match.mm !== '1') {
           throw {
             type: 'CustomBadRequestError',

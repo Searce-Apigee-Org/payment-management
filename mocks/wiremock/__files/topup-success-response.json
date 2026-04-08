@@ -1,0 +1,7 @@
+{
+  "transactionId": "{{randomValue length=10 type='ALPHANUMERIC'}}",
+  "status": "SUCCESS",
+  "amount": "{{jsonPath request.body '$.amount'}}",
+  "tokenPaymentId": "{{jsonPath request.body '$.tokenPaymentId'}}",
+  "timestamp": "{{now format=\"yyyy-MM-dd'T'HH:mm:ss'Z'\"}}"
+}

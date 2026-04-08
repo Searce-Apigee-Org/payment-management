@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/v1/subscriptions",
+    "queryParameters": {
+      "msisdn": {
+        "matches": ".*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "x-ind-duplicate": "false",
+      "x-result-code": "1200",
+      "x-result-description": "Success",
+      "date": "Tue, 11 Mar 2025 08:37:34 GMT",
+      "content-type": "text/plain; charset=utf-8",
+      "connection": "close"
+    },
+    "bodyFileName": "pre-registration-response.json"
+  }
+}

@@ -3,6 +3,7 @@ import * as buyLoadTransactionsRepository from './buyLoadTransactionsRepository.
 import * as channelConfigRepository from './channelConfigRepository.js';
 import * as customerPaymentsRepository from './customerPaymentsRepository.js';
 import * as ecpayTransactionRepository from './ecpayTransactionRepository.js';
+import * as paymentRepository from './paymentRepository.js';
 
 export {
   bindingPaymentsRepository,
@@ -10,4 +11,5 @@ export {
   channelConfigRepository,
   customerPaymentsRepository,
   ecpayTransactionRepository,
+  paymentRepository,
 };

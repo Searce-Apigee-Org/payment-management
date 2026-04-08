@@ -80,8 +80,7 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
       gcashPaymentInfo.miscellaneous =
         validationService.validateBudgetProtect(req);
     } else if (
-      // eslint-disable-next-line eqeqeq
-      (hasBudgetProtect === false || hasBudgetProtect == null) &&
+      (hasBudgetProtect === false || hasBudgetProtect === null) &&
       hasBudgetProtectProfile
     ) {
       throw {
@@ -227,8 +226,7 @@ const createPaymentServiceRequest = async (paymentInfoRequest, req) => {
       paymentInfo.miscellaneous =
         await validationService.validateBudgetProtect(req);
     } else if (
-      // eslint-disable-next-line eqeqeq
-      (hasBudgetProtect === false || hasBudgetProtect == null) &&
+      (hasBudgetProtect === false || hasBudgetProtect === null) &&
       hasBudgetProtectProfile
     ) {
       throw {

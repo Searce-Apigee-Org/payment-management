@@ -1,16 +1,19 @@
 import decodeB64 from '@globetel/cxs-core/core/jwt/decodeB64.js';
 import logger from '@globetel/cxs-core/core/logger/logger.js';
+import { config } from '../../../convict/config.js';
 import { constants, secretUtil } from '../../util/index.js';
 
 const getPricing = async (secretManagerClient) => {
   const secretEntity = constants.SECRET_ENTITY.OONA_PRICING;
   const secretName = secretUtil.buildSecretName(secretEntity);
 
-  logger.info(`Secret name is ${secretName}`);
-
   try {
-    const secret = await secretManagerClient.get(secretName);
+    const cachedPricing = config.get('oona.pricing');
+    if (cachedPricing) {
+      return decodeB64(cachedPricing);
+    }
 
+    const secret = await secretManagerClient.get(secretName);
     if (!secret) {
       throw {
         type: 'InvalidOutboundRequest',
@@ -18,10 +21,10 @@ const getPricing = async (secretManagerClient) => {
       };
     }
 
-    const decodedSecret = decodeB64(secret);
-    return decodedSecret;
+    logger.info(`Secret name is ${secretName}`);
+    return decodeB64(secret);
   } catch (error) {
-    logger.debug('SECRET_MANAGET_GET_FAILED', error);
+    logger.debug('SECRET_MANAGER_GET_FAILED', error);
     throw error;
   }
 };

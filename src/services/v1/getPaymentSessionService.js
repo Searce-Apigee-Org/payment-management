@@ -44,6 +44,7 @@ const getPaymentSession = async (req) => {
       transformers.v1Transformers.paymentSessionTransformer.buildPaymentSessionResponse(
         paymentDetails
       );
+
     let clientName = null;
 
     if (
@@ -67,7 +68,7 @@ const getPaymentSession = async (req) => {
       },
     });
 
-    return { result: response };
+    return response;
   } catch (error) {
     dataDictionary.setDataDictionary(req, {
       transaction_status: constants.TRANSACTION_STATUS.FAILED,

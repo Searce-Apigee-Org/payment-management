@@ -23,7 +23,6 @@ const shouldRecomputeRefund = (paymentDetails, notificationPayload) => {
     PAYMENT_TYPES: { XENDIT, CARD },
   } = constants;
 
-  //TODO - CHECK PAYMENT_TYPE_CARD
   const isEligible =
     stringUtil.compareLowerCase(paymentType, XENDIT) ||
     stringUtil.compareLowerCase(paymentType, CARD);

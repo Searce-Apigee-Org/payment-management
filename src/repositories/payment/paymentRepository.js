@@ -4,11 +4,9 @@ import { config } from '../../../convict/config.js';
 const {
   httpProtocol,
   paymentServiceHost,
-  endpoints: {
-    accessToken: paymentAccessToken,
-    esimSession: paymentEsimSession,
-  },
+  endpoints: { paymentAccessToken, paymentEsimSession, requestRefundPayment },
   paymentEsimSessionTimeout,
+  refundTokenTimeout,
 } = config.get('payment');
 
 const getAccessToken = async (http, query) => {
@@ -44,4 +42,19 @@ const esimPaymentSession = async (http, payload, headers) => {
   }
 };
 
-export { esimPaymentSession, getAccessToken };
+const requestRefundByTokenId = async (http, payload, headers) => {
+  const endpoint = requestRefundPayment;
+  const url = `${httpProtocol}://${paymentServiceHost}/${endpoint}`;
+  const options = {
+    headers,
+    timeout: refundTokenTimeout,
+  };
+  try {
+    const response = await http.post(url, payload, options, false, false);
+    return response;
+  } catch (err) {
+    throw { type: 'OperationFailed' };
+  }
+};
+
+export { esimPaymentSession, getAccessToken, requestRefundByTokenId };

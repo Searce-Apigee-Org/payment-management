@@ -1,4 +1,5 @@
-import { oonaUtil } from '../../util/index.js';
+import { logger } from '@globetel/cxs-core/core/logger/index.js';
+import { constants, oonaUtil } from '../../util/index.js';
 
 const applyOonaPricing = async (req, oonaSkus) => {
   const { secretManager, secret, cxsRequest } = req;
@@ -47,8 +48,7 @@ const applyOonaPricing = async (req, oonaSkus) => {
       if (brand && brand.toLowerCase() === 'ghp')
         pricingKey = 'OONA_COMP_TRAVEL_POSTPAID';
 
-      oonaUtil.applyOonaCompTravelPricing({
-        miscellaneous,
+      miscellaneous.oonaCompTravel = oonaUtil.applyOonaCompTravelPricing({
         skuIdentifier: compTravelSkuId,
         pricingData: oonaPricingConfig,
         oonaPromosKey: pricingKey,
@@ -56,8 +56,7 @@ const applyOonaPricing = async (req, oonaSkus) => {
     }
 
     if (oonaSku.toLowerCase() === 'oonasmartdelay') {
-      oonaUtil.applyOonaSmartDelayPricing({
-        miscellaneous,
+      miscellaneous.oonaSmartDelay = oonaUtil.applyOonaSmartDelayPricing({
         settlementInfo,
         pricingData: oonaPricingConfig,
       });
@@ -67,4 +66,99 @@ const applyOonaPricing = async (req, oonaSkus) => {
   return miscellaneous;
 };
 
-export { applyOonaPricing };
+const applyOonaPricingForV2 = async (params) => {
+  const { payload, secretManager, secret } = params;
+  logger.debug('VALIDATE_REQUEST', payload);
+
+  for (const item of payload.settlementInfo.breakdown) {
+    if (item.transactionType === 'O') {
+      // OONA
+      let newAmount = 0;
+
+      for (const tx of item.transactions) {
+        const compTravelSkuIds = [];
+
+        const normalizedSkus = new Set(
+          tx.oonaSkus.map((skuItem) => {
+            const lowerSku = skuItem.toLowerCase();
+
+            if (lowerSku.startsWith('oonacomptravel-')) {
+              const [, skuId] = lowerSku.split('-', 2);
+              if (skuId) {
+                compTravelSkuIds.push(skuId);
+                logger.debug(
+                  'OONA_SKU',
+                  constants.WEBPAYMENT_CONSTANTS.OONA_COMP_TRAVEL_KEY
+                );
+                logger.debug('OONA_SKU_ID', skuId);
+              }
+              return constants.WEBPAYMENT_CONSTANTS.OONA_COMP_TRAVEL_KEY;
+            }
+
+            return lowerSku;
+          })
+        );
+
+        let oonaPricingConfig =
+          await secretManager.oonaRepository.getPricing(secret);
+        const oonaPriceList = JSON.parse(oonaPricingConfig);
+        logger.debug('OONA_SKUS', oonaPricingConfig);
+
+        const allowedSkusSet = new Set(
+          constants.WEBPAYMENT_CONSTANTS.ALLOWED_OONA_SKUS
+        );
+        const isValid = [...normalizedSkus].every((sku) =>
+          allowedSkusSet.has(sku)
+        );
+        if (!isValid) {
+          throw { type: 'OperationFailed' };
+        }
+
+        let totalOonaAmount = 0;
+
+        for (const sku of normalizedSkus) {
+          if (sku === constants.WEBPAYMENT_CONSTANTS.OONA_COMP_TRAVEL_KEY) {
+            const ssmKey =
+              tx.transactionProfile.brand &&
+              tx.transactionProfile.brand.toLowerCase() === 'ghp'
+                ? constants.WEBPAYMENT_CONSTANTS.POSTPAID_OONA_SSM_KEY
+                : constants.WEBPAYMENT_CONSTANTS.DEFAULT_OONA_SSM_KEY;
+
+            for (const skuId of compTravelSkuIds) {
+              const amount = oonaUtil.applyOonaCompTravelPricing({
+                skuIdentifier: skuId,
+                pricingData: oonaPriceList,
+                oonaPromosKey: ssmKey,
+              });
+              totalOonaAmount += amount;
+            }
+          } else if (
+            sku === constants.WEBPAYMENT_CONSTANTS.OONA_SMART_DELAY_KEY
+          ) {
+            const amount = oonaUtil.applyOonaSmartDelayPricing({
+              settlementInfo: item,
+              pricingData: oonaPriceList,
+              version: 'v2',
+            });
+            totalOonaAmount += amount;
+          }
+        }
+
+        logger.debug('OONA_AMOUNT', totalOonaAmount);
+
+        // Check if transaction object contains "amount" field, do not override it.
+        const hasTxAmountField = tx.hasOwnProperty('amount');
+        if (!hasTxAmountField) {
+          tx.amount = totalOonaAmount;
+        }
+        newAmount += totalOonaAmount;
+      }
+
+      item.amount = newAmount;
+    }
+  }
+
+  return payload;
+};
+
+export { applyOonaPricing, applyOonaPricingForV2 };

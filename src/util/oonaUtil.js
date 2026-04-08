@@ -80,7 +80,6 @@ const validateOonaSmartDelay = (metadata) => {
 };
 
 const applyOonaCompTravelPricing = ({
-  miscellaneous,
   skuIdentifier,
   pricingData,
   oonaPromosKey,
@@ -95,16 +94,16 @@ const applyOonaCompTravelPricing = ({
   ) {
     throw {
       type: 'MissingParameterValidateException',
-      message: 'Onna pricing for service id not found.',
+      message: 'Oona pricing for service id not found.',
     };
   }
 
   const compTravelAmount = compTravelNode.pricing.net;
-  miscellaneous.oonaCompTravel = compTravelAmount;
+  return compTravelAmount;
 };
 
 const applyOonaSmartDelayPricing = (params) => {
-  const { miscellaneous, settlementInfo, pricingData } = params;
+  const { settlementInfo, pricingData, version = 'v1' } = params;
 
   const smartDelayNode = pricingData?.OONA_SMART_DELAY;
 
@@ -115,14 +114,20 @@ const applyOonaSmartDelayPricing = (params) => {
   ) {
     throw {
       type: 'MissingParameterValidateException',
-      message: 'Onna pricing for Smart Delay not found.',
+      message: 'Oona pricing for Smart Delay not found.',
     };
   }
 
-  const metadata = settlementInfo.metadata;
-  const membersCount = Array.isArray(metadata.members)
-    ? metadata.members.length
-    : 0;
+  let root = [];
+  let membersCount = 0;
+
+  if (version === 'v2') {
+    root = settlementInfo?.transactions[0]?.transactionProfile;
+  } else {
+    root = settlementInfo?.metadata;
+  }
+  membersCount = Array.isArray(root?.members) ? root.members?.length : 0;
+
   let total = smartDelayNode.base.net;
 
   if (membersCount > 1) {
@@ -132,7 +137,7 @@ const applyOonaSmartDelayPricing = (params) => {
     }
   }
 
-  miscellaneous.oonaSmartDelay = total;
+  return total;
 };
 
 export {

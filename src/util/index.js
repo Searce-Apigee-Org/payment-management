@@ -1,3 +1,4 @@
+import * as buyLoadUtil from './buyLoadUtil.js';
 import * as cacheUtil from './cacheUtil.js';
 import * as callbackClassificationUtil from './callbackReqClassificationUtil.js';
 import * as callbackUtil from './callbackUtil.js';
@@ -19,6 +20,7 @@ import * as validationUtil from './validationUtil.js';
 import * as xenditUtil from './xenditUtil.js';
 
 export {
+  buyLoadUtil,
   cacheUtil,
   callbackClassificationUtil,
   callbackUtil,

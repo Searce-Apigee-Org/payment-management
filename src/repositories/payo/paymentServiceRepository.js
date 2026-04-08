@@ -43,4 +43,29 @@ const createPayment = async ({ body, headers }, req) => {
   }
 };
 
-export { createPayment, getAccessToken };
+const requestRefundByTokenId = async (
+  payload,
+  headers,
+  apiVersion = constants.API_VERSIONS.V1
+) => {
+  const {
+    refundTokenTimeout,
+    httpProtocol,
+    paymentServiceHost: host,
+  } = config.get('payment');
+  const endpoint = `payments/api/${apiVersion}/refund`;
+  const url = `${httpProtocol}://${host}/${endpoint}`;
+  const options = {
+    headers,
+    timeout: refundTokenTimeout,
+  };
+  try {
+    const response = await http.post(url, payload, options, false, false);
+    return response;
+  } catch (err) {
+    logger.debug('REQUEST_REFUND_BY_TOKENID_ERROR', err);
+    throw { type: 'OperationFailed' };
+  }
+};
+
+export { createPayment, getAccessToken, requestRefundByTokenId };

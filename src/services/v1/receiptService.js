@@ -29,8 +29,12 @@ const getPaymentReceipt = async (req) => {
       );
 
     const tokenSecret =
-      await secretManager.rudyRepository.getPaymentsCredentials(
-        secretManagerClient
+      await secretManager.credentialsRepository.getPaymentsCredentials(
+        secretManagerClient,
+        constants.DOWNSTREAM.RUDY,
+        constants.SERVICE.PAYMENTS,
+        constants.VERSION.V1,
+        constants.SECRET_ENTITY.CREDENTIALS
       );
 
     let decodedToken;
@@ -52,8 +56,8 @@ const getPaymentReceipt = async (req) => {
     }
 
     if (userToken) {
-      const { userJWT } = decodeUserJWT(userToken);
-      if (userJWT?.uuid !== decodedToken['user-uuid']) {
+      const { uuid } = decodeUserJWT(userToken);
+      if (uuid !== decodedToken['user-uuid']) {
         throw {
           type: 'MismatchedUserToken',
           details:

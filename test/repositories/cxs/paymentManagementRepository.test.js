@@ -2,6 +2,7 @@ import logger from '@globetel/cxs-core/core/logger/logger.js';
 import { expect } from '@hapi/code';
 import Lab from '@hapi/lab';
 import Sinon from 'sinon';
+import { config } from '../../../convict/config.js';
 import { paymentManagementRepository } from '../../../src/repositories/cxs/index.js';
 
 const lab = Lab.script();
@@ -193,6 +194,81 @@ describe('Repository :: paymentManagementRepository :: buyLoadAsync', () => {
 
     expect(
       errorSpy.calledWith('CXS_BUY_LOAD_ASYNC_FAILED', error)
+    ).to.be.true();
+  });
+});
+
+describe('Repository :: paymentManagementRepository :: executeRefund', () => {
+  let req;
+  let httpStub;
+  let debugSpy;
+
+  beforeEach(() => {
+    httpStub = { post: Sinon.stub() };
+    req = {
+      payload: { tokenPaymentId: '' },
+      http: httpStub,
+    };
+
+    debugSpy = Sinon.spy(logger, 'debug');
+  });
+
+  afterEach(() => {
+    Sinon.restore();
+  });
+
+  it('should POST with correct url, body, and options then return response', async () => {
+    const paymentId = 'abc123';
+    req.payload.tokenPaymentId = paymentId;
+
+    const refundCfg = config.get('cxs.paymentManagement');
+    const encodedPaymentId = encodeURIComponent(paymentId);
+    const expectedUrl = `${refundCfg.httpProtocol}://${refundCfg.host}/${refundCfg.endpoints.paymentRefund.replace(
+      '{tokenPaymentId}',
+      encodedPaymentId
+    )}`;
+
+    const refundRequest = { amount: 123.45, reason: 'Duplicate' };
+
+    const authToken = 'Bearer some-auth-token';
+    const expectedOptions = {
+      headers: {
+        authorization: authToken,
+      },
+    };
+
+    const mockResponse = { status: 200, data: { statusCode: '0' } };
+    const postStub = httpStub.post.resolves(mockResponse);
+
+    const res = await paymentManagementRepository.executeRefund(
+      req,
+      refundRequest,
+      authToken
+    );
+
+    expect(postStub.calledOnce).to.be.true();
+    expect(postStub.firstCall.args[0]).to.equal(expectedUrl);
+    expect(postStub.firstCall.args[1]).to.equal(refundRequest);
+    expect(postStub.firstCall.args[2]).to.equal(expectedOptions);
+    expect(postStub.firstCall.args[3]).to.equal(false);
+    expect(postStub.firstCall.args[4]).to.equal(false);
+    expect(res).to.equal(mockResponse);
+  });
+
+  it('should rethrow error when http.post fails', async () => {
+    req.payload.tokenPaymentId = 'pay-err';
+    const refundRequest = { amount: 10, reason: 'Test' };
+    const authToken = 'Bearer some-auth-token';
+
+    const err = new Error('network down');
+    httpStub.post.rejects(err);
+
+    await expect(
+      paymentManagementRepository.executeRefund(req, refundRequest, authToken)
+    ).to.reject(Error, 'network down');
+
+    expect(
+      debugSpy.calledWith('CXS_PAYMENT_EXECUTE_REFUND_ERROR', err)
     ).to.be.true();
   });
 });

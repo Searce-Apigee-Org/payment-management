@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/oneapi/v1/vouchers/use",
+    "headers": { "Content-Type": { "equalTo": "application/json" } },
+    "bodyPatterns": [
+      { "matchesJsonPath": "$.tokenPaymentId" },
+      { "matchesJsonPath": "$.voucherCode" }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "bodyFileName": "oneapi-use-voucher-response.json",
+    "headers": { "Content-Type": "application/json" }
+  }
+}
